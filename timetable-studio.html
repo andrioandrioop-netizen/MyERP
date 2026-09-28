@@ -1,0 +1,1872 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Timetable Studio — ERP Scheduling Module</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="myerp-auth.js"></script>
+<style>body.checking{visibility:hidden}</style>
+<script>MyERP.requireLogin().then(function(u){ if(u) document.body.classList.remove('checking'); });</script>
+<style>
+  :root{
+    --emerald-900:#064e3b; --emerald-800:#065f46; --emerald-700:#047857;
+    --emerald-600:#059669; --emerald-500:#10b981; --emerald-400:#34d399;
+    --emerald-200:#a7f3d0; --emerald-100:#d1fae5; --emerald-50:#ecfdf5;
+    --bg:#f0f7f3; --card:#ffffff; --soft:#f8fbf9;
+    --border:#d7e5dc; --text:#0f2419; --muted:#5b7a6a;
+    --danger:#dc2626; --danger-bg:#fee2e2;
+    --amber-bg:#fffbeb; --amber:#92400e;
+    --shadow:0 1px 3px rgba(15,36,25,.06),0 8px 24px rgba(15,36,25,.06);
+  }
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:'Inter',ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,
+                "Helvetica Neue",Arial,sans-serif;
+    font-size:14px;line-height:1.5;color:var(--text);background:var(--bg);
+    -webkit-font-smoothing:antialiased;
+  }
+  button{font-family:inherit;cursor:pointer}
+  input,select,textarea{font-family:inherit}
+
+  /* ===================== TOP BAR ===================== */
+  .topbar{
+    height:62px;position:sticky;top:0;z-index:50;display:flex;align-items:center;
+    gap:14px;padding:0 22px;color:#fff;
+    background:linear-gradient(135deg,var(--emerald-800),var(--emerald-600));
+    box-shadow:0 2px 10px rgba(15,36,25,.14);
+  }
+  .topbar .logo{
+    width:40px;height:40px;border-radius:11px;flex:none;
+    background:rgba(255,255,255,.18);display:grid;place-items:center;
+    font-weight:800;font-size:15px;letter-spacing:.5px;
+    border:1px solid rgba(255,255,255,.22);
+  }
+  .topbar .titles{display:flex;flex-direction:column;line-height:1.15}
+  .topbar .titles strong{font-size:15px;font-weight:700;letter-spacing:.2px}
+  .topbar .titles span{font-size:10.5px;color:#a7f3d0;letter-spacing:.9px;
+                        text-transform:uppercase;font-weight:600}
+  .topbar .spacer{flex:1}
+  .topbar .btn{
+    border:none;border-radius:10px;padding:9px 14px;font-size:13px;font-weight:600;
+    color:#fff;background:rgba(255,255,255,.14);display:inline-flex;
+    align-items:center;gap:7px;transition:all .15s;white-space:nowrap;
+  }
+  .topbar .btn:hover{background:rgba(255,255,255,.25);transform:translateY(-1px)}
+  .topbar .btn.primary{
+    background:#fff;color:var(--emerald-800);
+    box-shadow:0 6px 18px rgba(0,0,0,.18);
+  }
+  .topbar .btn.primary:hover{background:var(--emerald-50);color:var(--emerald-900)}
+  .topbar .btn.pulse{
+    animation:glow 1.8s ease-in-out infinite;
+  }
+  @keyframes glow{
+    0%,100%{box-shadow:0 6px 18px rgba(0,0,0,.18)}
+    50%{box-shadow:0 6px 26px rgba(255,255,255,.5)}
+  }
+
+  /* ===================== LAYOUT ===================== */
+  .app{display:grid;grid-template-columns:352px 1fr;min-height:calc(100vh - 62px)}
+  @media(max-width:1080px){.app{grid-template-columns:1fr}}
+
+  .sidebar{
+    background:var(--card);border-right:1px solid var(--border);
+    padding:16px 16px 40px;overflow-y:auto;
+    max-height:calc(100vh - 62px);position:sticky;top:62px;
+  }
+  @media(max-width:1080px){.sidebar{position:static;max-height:none}}
+
+  .main{padding:22px 24px 60px;overflow-x:hidden;min-width:0}
+
+  /* ===================== SIDEBAR CARDS ===================== */
+  .card{
+    background:var(--soft);border:1px solid var(--border);border-radius:14px;
+    padding:14px;margin-bottom:12px;
+  }
+  .card h3{
+    font-size:11px;text-transform:uppercase;letter-spacing:.9px;color:var(--muted);
+    font-weight:800;margin-bottom:12px;display:flex;align-items:center;gap:9px;
+  }
+  .card h3 .num{
+    width:20px;height:20px;border-radius:50%;flex:none;
+    background:var(--emerald-600);color:#fff;display:grid;place-items:center;
+    font-size:11px;font-weight:800;letter-spacing:0;
+  }
+  .card .hint{font-size:11px;color:var(--muted);margin-top:8px;line-height:1.45}
+
+  /* ===================== BUTTONS ===================== */
+  .btn{
+    border:1px solid var(--border);border-radius:9px;background:#fff;color:var(--text);
+    padding:8px 13px;font-size:13px;font-weight:600;transition:all .15s;
+    display:inline-flex;align-items:center;gap:6px;white-space:nowrap;
+  }
+  .btn:hover{background:var(--emerald-50);border-color:var(--emerald-400)}
+  .btn.solid{
+    background:var(--emerald-600);color:#fff;border-color:var(--emerald-600);
+  }
+  .btn.solid:hover{background:var(--emerald-500);border-color:var(--emerald-500)}
+  .btn.ghost{background:transparent;color:var(--muted);border-style:dashed}
+  .btn.ghost:hover{background:var(--emerald-50);color:var(--emerald-700)}
+  .btn.sm{padding:6px 11px;font-size:12px;border-radius:8px}
+  .btn.xs{padding:4px 9px;font-size:11.5px;border-radius:7px}
+  .btn.block{width:100%;justify-content:center}
+  .icon-btn{
+    border:none;background:transparent;color:#b6c6bd;border-radius:7px;
+    padding:5px 7px;font-size:14px;line-height:1;transition:all .15s;
+  }
+  .icon-btn:hover{background:var(--danger-bg);color:var(--danger)}
+
+  /* ===================== DAYS ===================== */
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chip{
+    border:1px solid var(--border);background:#fff;color:var(--muted);
+    border-radius:999px;padding:6px 14px;font-size:12.5px;font-weight:700;
+    transition:all .15s;
+  }
+  .chip:hover{border-color:var(--emerald-400);color:var(--emerald-700)}
+  .chip.on{background:var(--emerald-600);border-color:var(--emerald-600);color:#fff}
+  .chip.on:hover{background:var(--emerald-500)}
+
+  /* ===================== SMALL LISTS ===================== */
+  .list{display:flex;flex-direction:column;gap:6px}
+  .row-item{display:flex;gap:6px;align-items:center}
+  .row-item .idx{
+    width:18px;text-align:center;color:#b6c6bd;font-weight:800;font-size:11px;flex:none;
+  }
+  .row-item input,.row-item select{
+    font-size:12.5px;padding:6px 9px;border:1px solid var(--border);border-radius:8px;
+    background:#fff;color:var(--text);width:100%;min-width:0;
+  }
+  .row-item input:focus,.row-item select:focus{
+    outline:2px solid var(--emerald-200);outline-offset:0;border-color:var(--emerald-400);
+  }
+  .row-item .grow{flex:1}
+  .rule-row{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted)}
+
+  /* ===================== MAIN TABS ===================== */
+  .tabs{
+    display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:18px;
+  }
+  .tab{
+    border:none;background:transparent;color:var(--muted);font-size:13.5px;
+    font-weight:700;padding:10px 18px;border-bottom:3px solid transparent;
+    margin-bottom:-1px;transition:all .15s;border-radius:8px 8px 0 0;
+  }
+  .tab:hover{color:var(--emerald-700);background:var(--emerald-50)}
+  .tab.on{color:var(--emerald-700);border-bottom-color:var(--emerald-600)}
+
+  /* ===================== TOOLBAR ===================== */
+  .toolbar{
+    display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+    background:var(--card);border:1px solid var(--border);border-radius:14px;
+    padding:14px 16px;margin-bottom:16px;box-shadow:var(--shadow);
+  }
+  .toolbar .stats{
+    display:flex;gap:18px;color:var(--muted);font-size:12.5px;font-weight:600;
+  }
+  .toolbar .stats b{color:var(--text);font-weight:800}
+
+  /* ===================== COURSE CARDS ===================== */
+  .course{
+    background:var(--card);border:1px solid var(--border);border-radius:14px;
+    margin-bottom:10px;overflow:hidden;box-shadow:var(--shadow);
+    transition:box-shadow .15s;
+  }
+  .course-head{
+    display:flex;align-items:center;gap:12px;padding:12px 14px;cursor:pointer;
+    user-select:none;transition:background .15s;
+  }
+  .course-head:hover{background:var(--soft)}
+  .course-head .chev{
+    font-size:11px;color:var(--muted);transition:transform .2s;width:12px;text-align:center;
+  }
+  .course-head.open .chev{transform:rotate(90deg)}
+  .course-head .cname{
+    font-weight:800;font-size:14.5px;color:var(--text);flex:none;
+  }
+  .course-head .summary{
+    font-size:11.5px;color:var(--muted);font-weight:600;flex:1;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  .course-head .warn{
+    font-size:11px;background:var(--danger-bg);color:var(--danger);
+    padding:3px 9px;border-radius:999px;font-weight:700;
+  }
+  .course-body{display:none;padding:0 14px 14px;border-top:1px solid #eef5f1}
+  .course-body.open{display:block}
+
+  .course-name-input{
+    width:100%;font-size:15px;font-weight:800;padding:8px 11px;margin:12px 0 10px;
+    border:1px solid var(--border);border-radius:9px;background:#fff;color:var(--text);
+  }
+  .course-name-input:focus{
+    outline:2px solid var(--emerald-200);border-color:var(--emerald-400);
+  }
+
+  .slots-label{
+    font-size:11px;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);
+    font-weight:800;margin-bottom:7px;
+  }
+
+  /* subject table */
+  .sub-table{
+    width:100%;border-collapse:collapse;margin-top:10px;
+    border:1px solid var(--border);border-radius:10px;overflow:hidden;
+    font-size:13px;background:#fff;
+  }
+  .sub-table th{
+    background:var(--emerald-50);color:var(--emerald-800);font-size:10.5px;
+    text-transform:uppercase;letter-spacing:.6px;padding:8px 10px;text-align:left;
+    border-bottom:1px solid var(--border);font-weight:800;
+  }
+  .sub-table td{padding:6px 8px;border-bottom:1px solid #eef5f1;vertical-align:middle}
+  .sub-table tr:last-child td{border-bottom:none}
+  .sub-table input,.sub-table select{
+    width:100%;font-size:12.5px;padding:6px 9px;border:1px solid transparent;
+    border-radius:7px;background:transparent;color:var(--text);
+  }
+  .sub-table input:hover,.sub-table select:hover{border-color:var(--border);background:#fff}
+  .sub-table input:focus,.sub-table select:focus{
+    background:#fff;border-color:var(--emerald-400);outline:2px solid var(--emerald-200);
+  }
+  .sub-table td.num{width:80px}
+  .sub-table td.del{width:36px;text-align:center}
+
+  /* ===================== EMPTY STATE ===================== */
+  .empty{
+    text-align:center;padding:70px 24px;background:var(--card);
+    border:1px dashed var(--border);border-radius:16px;
+  }
+  .empty .big{font-size:56px;margin-bottom:12px;opacity:.6}
+  .empty h3{font-size:19px;color:var(--text);margin-bottom:8px;font-weight:800}
+  .empty p{color:var(--muted);margin-bottom:18px;font-size:13.5px}
+
+  /* ===================== TIMETABLE GRID ===================== */
+  .tt-wrap{
+    background:var(--card);border:1px solid var(--border);border-radius:14px;
+    padding:16px;box-shadow:var(--shadow);overflow:auto;
+  }
+  .tt-course-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+  .tt-course-tab{
+    border:1px solid var(--border);background:#fff;color:var(--muted);
+    border-radius:10px;padding:7px 14px;font-size:12.5px;font-weight:700;
+    transition:all .15s;
+  }
+  .tt-course-tab:hover{border-color:var(--emerald-400);color:var(--emerald-700)}
+  .tt-course-tab.on{background:var(--emerald-800);border-color:var(--emerald-800);color:#fff}
+
+  table.tt{
+    border-collapse:separate;border-spacing:0;width:100%;min-width:760px;
+    font-size:13px;border:1px solid var(--border);border-radius:12px;
+    overflow:hidden;
+  }
+  table.tt th,table.tt td{
+    border-right:1px solid #eef5f1;border-bottom:1px solid #eef5f1;
+    padding:10px 8px;text-align:center;vertical-align:middle;
+  }
+  table.tt thead th{
+    background:var(--emerald-50);color:var(--emerald-800);font-weight:800;
+    font-size:11.5px;letter-spacing:.4px;position:sticky;top:0;
+  }
+  table.tt thead th em{
+    display:block;font-style:normal;font-size:9px;color:#94a3b8;
+    letter-spacing:.7px;margin-top:2px;text-transform:uppercase;
+  }
+  table.tt tbody th{
+    background:var(--soft);font-weight:800;font-size:12.5px;color:var(--emerald-900);
+    position:sticky;left:0;z-index:2;
+  }
+  table.tt tbody th span{
+    display:block;font-size:10px;color:var(--muted);font-weight:500;
+  }
+  table.tt td.filled{background:var(--emerald-100)}
+  table.tt td.filled b{
+    display:block;font-size:13px;font-weight:800;color:var(--emerald-900);
+    line-height:1.25;
+  }
+  table.tt td.filled span{
+    display:block;font-size:11px;color:var(--muted);margin-top:2px;
+  }
+  table.tt td.recess{
+    background:repeating-linear-gradient(45deg,#f8fbf9,#f8fbf9 6px,#eef5f1 6px,#eef5f1 12px);
+    color:#b6c6bd;font-size:11px;font-style:italic;font-weight:700;letter-spacing:.5px;
+  }
+  table.tt tr:last-child th,table.tt tr:last-child td{border-bottom:none}
+  table.tt th:last-child,table.tt td:last-child{border-right:none}
+
+  /* ===================== TEACHER VIEW ===================== */
+  .teacher-picker{
+    display:flex;gap:10px;align-items:center;flex-wrap:wrap;
+    background:var(--card);border:1px solid var(--border);border-radius:14px;
+    padding:14px 16px;margin-bottom:16px;box-shadow:var(--shadow);
+  }
+  .teacher-picker label{font-size:11px;text-transform:uppercase;letter-spacing:.7px;
+                        color:var(--muted);font-weight:800}
+  .teacher-picker select{
+    padding:9px 12px;border:1px solid var(--border);border-radius:9px;font-size:13.5px;
+    font-weight:700;color:var(--text);background:#fff;min-width:200px;
+  }
+
+  /* ===================== MODAL ===================== */
+  .overlay{
+    position:fixed;inset:0;background:rgba(15,36,25,.55);z-index:200;
+    display:none;place-items:center;padding:20px;
+    backdrop-filter:blur(3px);
+  }
+  .overlay.show{display:grid}
+  .modal{
+    background:#fff;border-radius:18px;width:100%;max-width:760px;
+    max-height:88vh;display:flex;flex-direction:column;overflow:hidden;
+    box-shadow:0 24px 60px rgba(0,0,0,.35);
+    animation:pop .2s ease-out;
+  }
+  @keyframes pop{from{transform:scale(.96);opacity:0}to{transform:scale(1);opacity:1}}
+  .modal-head{
+    padding:20px 24px;background:linear-gradient(135deg,var(--emerald-800),var(--emerald-600));
+    color:#fff;display:flex;align-items:center;gap:14px;
+  }
+  .modal-head .mi{font-size:24px}
+  .modal-head h2{font-size:17px;font-weight:800;letter-spacing:.2px}
+  .modal-head p{font-size:12.5px;color:#a7f3d0;margin-top:2px}
+  .modal-body{padding:22px 24px;overflow-y:auto;flex:1}
+  .modal-body h4{
+    font-size:11px;text-transform:uppercase;letter-spacing:.8px;
+    color:var(--muted);font-weight:800;margin-bottom:8px;
+  }
+  .modal-body p{font-size:13.5px;color:var(--text);margin-bottom:12px;line-height:1.55}
+  .modal-body code{
+    background:var(--emerald-50);border:1px solid var(--emerald-100);
+    color:var(--emerald-800);padding:2px 6px;border-radius:5px;
+    font-family:ui-monospace,Consolas,Menlo,monospace;font-size:12.5px;font-weight:600;
+  }
+  .modal-body pre{
+    background:var(--soft);border:1px solid var(--border);border-radius:10px;
+    padding:14px;font-family:ui-monospace,Consolas,Menlo,monospace;
+    font-size:12px;line-height:1.6;color:var(--text);overflow-x:auto;
+    margin-bottom:14px;white-space:pre;
+  }
+  .modal-body textarea{
+    width:100%;min-height:280px;padding:14px;font-family:ui-monospace,Consolas,monospace;
+    font-size:12.5px;line-height:1.6;border:1px solid var(--border);border-radius:10px;
+    background:var(--soft);color:var(--text);resize:vertical;
+  }
+  .modal-body textarea:focus{
+    outline:2px solid var(--emerald-200);border-color:var(--emerald-400);background:#fff;
+  }
+  .modal-foot{
+    padding:14px 24px;background:var(--soft);border-top:1px solid var(--border);
+    display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;
+  }
+
+  /* ===================== TOAST ===================== */
+  .toast{
+    position:fixed;bottom:24px;right:24px;z-index:300;
+    background:var(--emerald-800);color:#fff;border-radius:12px;
+    padding:14px 20px;font-size:13.5px;font-weight:600;
+    box-shadow:0 12px 32px rgba(0,0,0,.25);max-width:420px;
+    display:flex;align-items:flex-start;gap:12px;
+    transform:translateY(120%);opacity:0;transition:all .3s cubic-bezier(.2,.9,.3,1.2);
+  }
+  .toast.show{transform:translateY(0);opacity:1}
+  .toast.err{background:var(--danger)}
+  .toast .ti{font-size:18px;line-height:1}
+
+  /* ===================== SPINNER ===================== */
+  .spin-overlay{
+    position:fixed;inset:0;background:rgba(15,36,25,.4);z-index:250;
+    display:none;place-items:center;backdrop-filter:blur(2px);
+  }
+  .spin-overlay.show{display:grid}
+  .spin-box{
+    background:#fff;border-radius:16px;padding:26px 32px;
+    display:flex;align-items:center;gap:16px;
+    box-shadow:0 20px 50px rgba(0,0,0,.25);
+  }
+  .spin{
+    width:32px;height:32px;border:3px solid var(--emerald-100);
+    border-top-color:var(--emerald-600);border-radius:50%;
+    animation:spin .8s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .spin-box b{font-size:14px;color:var(--text)}
+  .spin-box small{display:block;font-size:11.5px;color:var(--muted);margin-top:2px}
+
+  /* ===================== TEACHER LOAD PILLS ===================== */
+  .legend{
+    margin-top:16px;padding-top:14px;border-top:1px dashed var(--border);
+    display:flex;gap:8px;flex-wrap:wrap;
+  }
+  .pill{
+    background:var(--emerald-50);border:1px solid var(--emerald-100);
+    color:var(--emerald-800);border-radius:999px;padding:5px 13px;
+    font-size:11.5px;font-weight:700;
+  }
+  .pill b{font-weight:900;margin-left:4px}
+
+  /* ===================== STALE WARNING ===================== */
+  .stale{
+    background:var(--amber-bg);border:1px solid #fde68a;color:var(--amber);
+    border-radius:10px;padding:10px 14px;font-size:12.5px;font-weight:700;
+    margin-bottom:12px;display:flex;align-items:center;gap:10px;
+  }
+</style>
+</head>
+<body class="checking">
+
+<!-- ========== TOP BAR ========== -->
+<header class="topbar">
+  <div class="logo">TT</div>
+  <div class="titles">
+    <strong>Timetable Studio</strong>
+    <span>ERP · Scheduling Module</span>
+  </div>
+  <div class="spacer"></div>
+  <button class="btn" data-action="demo">↺ Demo</button>
+  <button class="btn" data-action="import-json">📥 Import</button>
+  <button class="btn" data-action="export-json">📤 Save</button>
+  <button class="btn" data-action="help">❓ Help</button>
+  <button class="btn" data-action="export-excel">⬇ Excel</button>
+  <button class="btn primary" data-action="generate" id="btnGenerate">⚡ Generate Timetable</button>
+</header>
+<script>MyERP.mountAccount('.topbar');</script>
+
+<!-- ========== APP ========== -->
+<div class="app">
+
+  <!-- ========== SIDEBAR ========== -->
+  <aside class="sidebar">
+
+    <div class="card">
+      <h3><span class="num">1</span> Working Days</h3>
+      <div id="daysBox" class="chips"></div>
+    </div>
+
+    <div class="card">
+      <h3><span class="num">2</span> Time Slots</h3>
+      <div id="slotsBox" class="list"></div>
+      <button class="btn ghost sm block" data-action="add-slot" style="margin-top:8px">
+        + Add a time slot
+      </button>
+      <p class="hint">Mark <b>Lunch</b>, <b>Library</b>, <b>Recess</b> etc. as "Recess" — they'll show as grey stripes.</p>
+    </div>
+
+    <div class="card">
+      <h3><span class="num">3</span> Teachers</h3>
+      <div id="teachersBox" class="list"></div>
+      <div class="row-item" style="margin-top:8px">
+        <input id="newTeacher" placeholder="Teacher code or name…" />
+        <button class="btn sm" data-action="add-teacher">Add</button>
+      </div>
+      <p class="hint">Don't worry — teachers are also <b>auto-created</b> when you paste from Excel.</p>
+    </div>
+
+    <div class="card">
+      <h3><span class="num">4</span> Rule</h3>
+      <div class="rule-row">
+        <span style="flex:1">Max same subject / day</span>
+        <input type="number" id="maxPerDay" min="1" max="6" value="1"
+               style="width:60px;text-align:center;padding:6px 8px;border:1px solid var(--border);border-radius:8px" />
+      </div>
+      <p class="hint">1 = a subject can never appear twice on the same day.</p>
+    </div>
+
+  </aside>
+
+  <!-- ========== MAIN ========== -->
+  <main class="main">
+
+    <div class="tabs">
+      <button class="tab on" data-tab="courses">📚 Courses</button>
+      <button class="tab" data-tab="timetable">📅 Timetable</button>
+      <button class="tab" data-tab="teachers">👩‍🏫 Teacher View</button>
+    </div>
+
+    <section id="tab-courses"></section>
+    <section id="tab-timetable" style="display:none"></section>
+    <section id="tab-teachers" style="display:none"></section>
+
+  </main>
+</div>
+
+<!-- ========== BULK IMPORT MODAL ========== -->
+<div class="overlay" id="bulkModal">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="mi">📋</div>
+      <div>
+        <h2>Paste from Excel</h2>
+        <p>One line per subject — takes 30 seconds for all your courses.</p>
+      </div>
+    </div>
+    <div class="modal-body">
+      <h4>Format</h4>
+      <p>Each line: <code>Course | Subject | Teacher | Sessions/week | Slots</code></p>
+      <p>Separators can be <b>Tab</b> (best — copy straight from Excel), <code>|</code>, or <code>,</code>.
+         The last two columns are optional. If your subject looks like
+         <code>BBADC101-IS</code>, it's auto-split into subject <code>BBADC101</code> + teacher <code>IS</code>.</p>
+
+      <h4>Example</h4>
+      <pre>BBA I A	BBADC101-IS	3		10-11am,11-12am,12-1pm
+BBA I A	BBADC102-AA	3
+BBA I A	MCSVC101-DMB	3
+BBA I B	BBADC103-BMK	3		10-11am,11-12am,12-1pm
+BBA I B	BBADC101-IS	3
+BBA I B	BBADC102-Prashi	3
+BBA V A	BBADC501-AV	3		2-3pm,3-4pm,4-5pm
+BBA V A	BBADC502-DYT	3
+BBA V A	BBADC503-DMB	3</pre>
+
+      <h4>Your data</h4>
+      <textarea id="bulkText" placeholder="Paste your rows here…"></textarea>
+    </div>
+    <div class="modal-foot">
+      <button class="btn ghost" data-action="bulk-example">Insert example</button>
+      <button class="btn" data-action="close-modal">Cancel</button>
+      <button class="btn solid" data-action="bulk-import">✓ Import these rows</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== HELP MODAL ========== -->
+<div class="overlay" id="helpModal">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="mi">❓</div>
+      <div>
+        <h2>How to use — 4 easy steps</h2>
+        <p>No jargon. No setup. Just a clean timetable.</p>
+      </div>
+    </div>
+    <div class="modal-body">
+      <h4>Step 1 · Pick your working days</h4>
+      <p>Click Mon–Sat (or whichever days you work) in the left panel.</p>
+
+      <h4>Step 2 · Set your time slots</h4>
+      <p>The default is 10–11, 11–12, 12–1, lunch 1–2, 2–3, 3–4, 4–5.
+         Rename them, add more, or mark any as <b>Recess</b> (lunch, library, PET).</p>
+
+      <h4>Step 3 · Add your courses</h4>
+      <p>Click the big <b>📋 Paste from Excel</b> button. Copy your course rows straight from
+         Excel and paste — that's it. Every teacher is auto-created.</p>
+
+      <h4>Step 4 · Hit Generate</h4>
+      <p>Click <b>⚡ Generate Timetable</b>. Your timetable appears in the "Timetable" tab —
+         one clean grid per course — and a personal weekly view for every teacher in
+         the "Teacher View" tab. Click <b>⬇ Excel</b> to download everything.</p>
+
+      <h4>Good to know</h4>
+      <p>• Teachers shared across courses are never double-booked — the engine checks the real
+         wall-clock slot, not just the period index.<br>
+         • Your work is auto-saved on this computer. Close and reopen safely.<br>
+         • Use <b>📤 Save</b> to export a JSON file, and <b>📥 Import</b> to load it on another PC.</p>
+    </div>
+    <div class="modal-foot">
+      <button class="btn solid" data-action="close-modal">Got it</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== TOAST ========== -->
+<div class="toast" id="toast">
+  <span class="ti" id="toastIcon">✓</span>
+  <span id="toastText"></span>
+</div>
+
+<!-- ========== SPINNER ========== -->
+<div class="spin-overlay" id="spinOverlay">
+  <div class="spin-box">
+    <div class="spin"></div>
+    <div>
+      <b>Solving timetable…</b>
+      <small>Making sure no teacher is double-booked</small>
+    </div>
+  </div>
+</div>
+
+<!-- SheetJS for Excel export -->
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+
+<script>
+/* ============================================================================
+   PART 1 — ENGINE (identical solver, adapted to global slot ids)
+   ============================================================================ */
+const TimetableEngine = (function(){
+  'use strict';
+
+  function rng(seed){
+    let s = (seed>>>0)||1;
+    return function(){ s = (s*1664525 + 1013904223)>>>0; return s/4294967296; };
+  }
+
+  function generate(cfg){
+    const days    = cfg.days     || [];
+    const slots   = cfg.slots    || [];
+    const courses = cfg.courses  || [];
+    const opts    = cfg.options  || {};
+    const maxPerDay = Math.max(1, opts.maxSessionsPerSubjectPerDay||1);
+    const restarts  = opts.restarts||24;
+    const nodeLimit = opts.nodeLimit||200000;
+    const baseSeed  = opts.seed!=null? opts.seed : ((Date.now()&0x7fffffff));
+
+    const D = days.length;
+    const slotIndex = {}; slots.forEach((s,i)=>slotIndex[s.id]=i);
+
+    // per-course list of legal slot indices (only 'class' slots)
+    const courseSlots = {};
+    courses.forEach(c=>{
+      const ids = new Set(c.slotIds||[]);
+      courseSlots[c.id] = slots
+        .map((s,i)=>({s,i}))
+        .filter(x=>x.s.type==='class' && ids.has(x.s.id))
+        .map(x=>x.i);
+    });
+
+    // flatten
+    const lessons = [];
+    courses.forEach(c=>{
+      (c.subjects||[]).forEach(s=>{
+        const n = Math.max(0, parseInt(s.sessionsPerWeek,10)||0);
+        for(let i=0;i<n;i++){
+          lessons.push({
+            key: c.id+'|'+s.id+'|'+i,
+            courseId: c.id,
+            subjectId: s.id,
+            teacherId: s.teacherId||null
+          });
+        }
+      });
+    });
+
+    // pre-flight
+    const problems = [];
+    if(D===0) problems.push('No working days selected.');
+    courses.forEach(c=>{
+      const avail = courseSlots[c.id].length;
+      if(avail===0){
+        problems.push('Course "'+c.name+'" has no class slots ticked.');
+        return;
+      }
+      const total = (c.subjects||[]).reduce((a,s)=>a+(parseInt(s.sessionsPerWeek,10)||0),0);
+      const cap = D*avail;
+      if(total>cap) problems.push('Course "'+c.name+'" needs '+total+
+        ' slots but only '+cap+' are available.');
+      (c.subjects||[]).forEach(s=>{
+        const n = parseInt(s.sessionsPerWeek,10)||0;
+        if(n>D*maxPerDay) problems.push('"'+s.name+'" in "'+c.name+
+          '" needs '+n+' sessions/week but only '+(D*maxPerDay)+' possible.');
+      });
+    });
+    if(problems.length) return {ok:false,problems,assignments:{}};
+    if(lessons.length===0) return {ok:true,problems:[],assignments:{}};
+
+    let solved = null;
+    for(let a=0;a<restarts && !solved;a++){
+      try{
+        solved = solveOnce(lessons, D, slots.length, courseSlots,
+                           maxPerDay, nodeLimit, rng(baseSeed + a*7919));
+      }catch(e){ if(e && e.__timeout) solved=null; else throw e; }
+    }
+
+    if(!solved){
+      return {ok:false,problems:['Could not find a conflict-free arrangement. '+
+        'Add more slots, add another teacher for an overloaded subject, '+
+        'or reduce sessions/week.'],assignments:{}};
+    }
+    return {ok:true,problems:[],assignments:solved};
+  }
+
+  function solveOnce(lessons,D,P,courseSlots,maxPerDay,nodeLimit,rnd){
+    const teacherBusy = new Map();   // tid|d -> Set(slotIdx)
+    const courseBusy  = new Map();   // cid|d -> Set(slotIdx)
+    const subjDay     = new Map();   // cid|sid -> Int8Array(D)
+    const courseDay   = new Map();   // cid -> Int8Array(D)
+    const assignment  = new Map();
+    let nodes = 0;
+
+    function bagArr(map,k,len){ let a=map.get(k); if(!a){a=new Int8Array(len);map.set(k,a);} return a; }
+    function bagSet(map,k){ let a=map.get(k); if(!a){a=new Set();map.set(k,a);} return a; }
+
+    function feasible(L){
+      const out = [];
+      const sd = bagArr(subjDay, L.courseId+'|'+L.subjectId, D);
+      const legal = courseSlots[L.courseId] || [];
+      for(let d=0;d<D;d++){
+        if(sd[d]>=maxPerDay) continue;
+        const cb = courseBusy.get(L.courseId+'|'+d);
+        const tb = L.teacherId ? teacherBusy.get(L.teacherId+'|'+d) : null;
+        for(let k=0;k<legal.length;k++){
+          const s = legal[k];
+          if(cb && cb.has(s)) continue;
+          if(tb && tb.has(s)) continue;
+          out.push([d,s]);
+        }
+      }
+      return out;
+    }
+
+    function place(L,d,s){
+      bagSet(courseBusy, L.courseId+'|'+d).add(s);
+      if(L.teacherId) bagSet(teacherBusy, L.teacherId+'|'+d).add(s);
+      bagArr(subjDay, L.courseId+'|'+L.subjectId, D)[d]++;
+      bagArr(courseDay, L.courseId, D)[d]++;
+      assignment.set(L.key, {d,s});
+    }
+    function unplace(L,d,s){
+      courseBusy.get(L.courseId+'|'+d).delete(s);
+      if(L.teacherId) teacherBusy.get(L.teacherId+'|'+d).delete(s);
+      bagArr(subjDay, L.courseId+'|'+L.subjectId, D)[d]--;
+      bagArr(courseDay, L.courseId, D)[d]--;
+      assignment.delete(L.key);
+    }
+
+    function solve(remaining){
+      if(remaining.length===0) return true;
+      if(++nodes > nodeLimit){ const e=new Error('node limit'); e.__timeout=true; throw e; }
+
+      // MRV
+      let bestI=-1, bestSlots=null;
+      for(let i=0;i<remaining.length;i++){
+        const s = feasible(remaining[i]);
+        if(s.length===0) return false;
+        if(bestSlots===null || s.length<bestSlots.length){
+          bestSlots=s; bestI=i;
+          if(s.length===1) break;
+        }
+      }
+      const L = remaining[bestI];
+      const cdl = bagArr(courseDay, L.courseId, D);
+      const ordered = bestSlots.slice().sort((a,b)=>{
+        const ka = cdl[a[0]]*100 + rnd()*90;
+        const kb = cdl[b[0]]*100 + rnd()*90;
+        return ka-kb;
+      });
+      const rest = remaining.slice(0,bestI).concat(remaining.slice(bestI+1));
+
+      for(const [d,s] of ordered){
+        place(L,d,s);
+        if(solve(rest)) return true;
+        unplace(L,d,s);
+      }
+      return false;
+    }
+
+    if(solve(lessons.slice())) {
+      const out={}; assignment.forEach((v,k)=>out[k]=v); return out;
+    }
+    return null;
+  }
+
+  function buildGrids(cfg, assignments){
+    const days = cfg.days||[], slots = cfg.slots||[];
+    const tmap = {}; (cfg.teachers||[]).forEach(t=>tmap[t.id]=t.name);
+    const grids = {};
+    (cfg.courses||[]).forEach(c=>{
+      const g={}; days.forEach(d=>g[d.key]={});
+      (c.subjects||[]).forEach(s=>{
+        const n = Math.max(0, parseInt(s.sessionsPerWeek,10)||0);
+        for(let i=0;i<n;i++){
+          const a = assignments[c.id+'|'+s.id+'|'+i];
+          if(!a) continue;
+          const dk = days[a.d] && days[a.d].key;
+          if(!dk) continue;
+          g[dk][a.s] = {
+            subjectName: s.name,
+            teacherName: tmap[s.teacherId] || '—'
+          };
+        }
+      });
+      grids[c.id]=g;
+    });
+    return grids;
+  }
+
+  return { generate, buildGrids };
+})();
+
+
+/* ============================================================================
+   PART 2 — CONSTANTS + STATE
+   ============================================================================ */
+const ALL_DAYS = [
+  {key:'Mon',short:'Mon',label:'Monday'},
+  {key:'Tue',short:'Tue',label:'Tuesday'},
+  {key:'Wed',short:'Wed',label:'Wednesday'},
+  {key:'Thu',short:'Thu',label:'Thursday'},
+  {key:'Fri',short:'Fri',label:'Friday'},
+  {key:'Sat',short:'Sat',label:'Saturday'},
+  {key:'Sun',short:'Sun',label:'Sunday'}
+];
+const LS_KEY = 'tt_studio_v3';
+const uid = p => p+'_'+Math.random().toString(36).slice(2,9);
+
+function defaultSlots(){
+  return [
+    {id:uid('sl'),label:'10-11am',type:'class'},
+    {id:uid('sl'),label:'11-12am',type:'class'},
+    {id:uid('sl'),label:'12-1pm', type:'class'},
+    {id:uid('sl'),label:'1-2pm',  type:'recess'},
+    {id:uid('sl'),label:'2-3pm',  type:'class'},
+    {id:uid('sl'),label:'3-4pm',  type:'class'},
+    {id:uid('sl'),label:'4-5pm',  type:'class'},
+  ];
+}
+
+let state = {
+  days:['Mon','Tue','Wed','Thu','Fri','Sat'],
+  slots:defaultSlots(),
+  teachers:[],
+  courses:[],
+  options:{maxSessionsPerSubjectPerDay:1},
+  result:null,
+  activeCourse:null,
+  activeTeacher:null,
+  activeTab:'courses',
+  stale:false,
+  expanded:new Set()
+};
+
+function persist(){
+  try{
+    localStorage.setItem(LS_KEY, JSON.stringify({
+      days:state.days, slots:state.slots, teachers:state.teachers,
+      courses:state.courses, options:state.options
+    }));
+  }catch(e){}
+}
+function restore(){
+  try{
+    const raw = localStorage.getItem(LS_KEY);
+    if(!raw) return false;
+    const d = JSON.parse(raw);
+    if(!d || !Array.isArray(d.slots)) return false;
+    state.days     = d.days||state.days;
+    state.slots    = d.slots;
+    state.teachers = d.teachers||[];
+    state.courses  = d.courses||[];
+    state.options  = d.options||state.options;
+    state.courses.forEach(c=>c.slotIds=c.slotIds||[]);
+    return true;
+  }catch(e){ return false; }
+}
+function markStale(){ state.stale=true; persist(); updateGenerateButton(); }
+
+function findCourse(id){ return state.courses.find(c=>c.id===id); }
+function findTeacher(id){ return state.teachers.find(t=>t.id===id); }
+
+function esc(s){
+  return String(s==null?'':s).replace(/[&<>"']/g, m =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+/* ============================================================================
+   PART 3 — DEMO DATA
+   ============================================================================ */
+function loadDemo(){
+  state.slots = defaultSlots();
+  const byLabel = {}; state.slots.forEach(s=>byLabel[s.label]=s.id);
+  const morning = [byLabel['10-11am'], byLabel['11-12am'], byLabel['12-1pm']];
+  const evening = [byLabel['2-3pm'], byLabel['3-4pm'], byLabel['4-5pm']];
+  const allCls  = morning.concat(evening);
+
+  const mkT = n => ({id:uid('t'), name:n});
+  const tIS=mkT('IS'), tAA=mkT('AA'), tDMB=mkT('DMB'),
+        tAV=mkT('AV'), tPrashi=mkT('Prashi'), tMuskan=mkT('Muskan');
+
+  const mkS = (name,t,n=3) => ({id:uid('s'),name,teacherId:t.id,sessionsPerWeek:n});
+
+  state.teachers = [tIS,tAA,tDMB,tAV,tPrashi,tMuskan];
+  state.courses = [
+    {id:uid('c'),name:'BBA I A', slotIds:morning.slice(),
+      subjects:[mkS('BBADC101',tIS), mkS('BBADC102',tAA), mkS('MCSVC101',tDMB)]},
+    {id:uid('c'),name:'BBA I B', slotIds:morning.slice(),
+      subjects:[mkS('BBADC103',tMuskan), mkS('BBADC101',tIS), mkS('BBADC102',tPrashi)]},
+    {id:uid('c'),name:'BBA V A', slotIds:evening.slice(),
+      subjects:[mkS('BBADC501',tAV), mkS('BBADC502',tDMB), mkS('BBADC503',tPrashi)]},
+    {id:uid('c'),name:'MBA I', slotIds:allCls.slice(),
+      subjects:[mkS('MECO-103',tAV), mkS('AFMA-103',tDMB), mkS('MPOB-101',tIS)]}
+  ];
+  state.result=null;
+  state.activeCourse=state.courses[0].id;
+  state.stale=true;
+  persist();
+}
+
+/* ============================================================================
+   PART 4 — TOAST
+   ============================================================================ */
+let toastTimer=null;
+function toast(msg, kind='ok'){
+  const t = document.getElementById('toast');
+  const ic = document.getElementById('toastIcon');
+  const tx = document.getElementById('toastText');
+  tx.textContent = msg;
+  ic.textContent = kind==='err' ? '⚠' : '✓';
+  t.className = 'toast show' + (kind==='err' ? ' err' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=> t.className='toast', 4200);
+}
+
+/* ============================================================================
+   PART 5 — RENDER
+   ============================================================================ */
+function renderAll(){
+  renderDays();
+  renderSlots();
+  renderTeachers();
+  renderCoursesTab();
+  renderTimetableTab();
+  renderTeacherTab();
+  renderTabs();
+  updateGenerateButton();
+  document.getElementById('maxPerDay').value =
+    state.options.maxSessionsPerSubjectPerDay;
+  persist();
+}
+
+function renderTabs(){
+  document.querySelectorAll('.tab').forEach(t=>{
+    t.classList.toggle('on', t.dataset.tab===state.activeTab);
+  });
+  ['courses','timetable','teachers'].forEach(k=>{
+    document.getElementById('tab-'+k).style.display =
+      (state.activeTab===k)?'':'none';
+  });
+}
+
+function updateGenerateButton(){
+  const b = document.getElementById('btnGenerate');
+  if(state.stale && state.courses.length) b.classList.add('pulse');
+  else b.classList.remove('pulse');
+}
+
+/* ---- SIDEBAR ---- */
+function renderDays(){
+  const box = document.getElementById('daysBox');
+  box.innerHTML = ALL_DAYS.map(d=>{
+    const on = state.days.includes(d.key);
+    return '<button class="chip'+(on?' on':'')+'" data-action="toggle-day" data-key="'+d.key+'">'+d.short+'</button>';
+  }).join('');
+}
+
+function renderSlots(){
+  const box = document.getElementById('slotsBox');
+  box.innerHTML = state.slots.map((s,i)=>(
+    '<div class="row-item">'+
+      '<span class="idx">'+(i+1)+'</span>'+
+      '<input class="grow" data-action="slot-label" data-id="'+s.id+'" value="'+esc(s.label)+'" />'+
+      '<select data-action="slot-type" data-id="'+s.id+'" style="width:96px;flex:none;font-size:11.5px">'+
+        '<option value="class"'+(s.type==='class'?' selected':'')+'>Class</option>'+
+        '<option value="recess"'+(s.type==='recess'?' selected':'')+'>Recess</option>'+
+      '</select>'+
+      '<button class="icon-btn" data-action="del-slot" data-id="'+s.id+'" title="Remove">✕</button>'+
+    '</div>'
+  )).join('');
+}
+
+function renderTeachers(){
+  const box = document.getElementById('teachersBox');
+  if(!state.teachers.length){
+    box.innerHTML = '<p class="hint" style="margin:0 0 4px">No teachers yet — auto-added when you paste data.</p>';
+    return;
+  }
+  box.innerHTML = state.teachers.map(t=>(
+    '<div class="row-item">'+
+      '<input class="grow" data-action="teacher-name" data-id="'+t.id+'" value="'+esc(t.name)+'" />'+
+      '<button class="icon-btn" data-action="del-teacher" data-id="'+t.id+'" title="Remove">✕</button>'+
+    '</div>'
+  )).join('');
+}
+
+/* ---- COURSES TAB ---- */
+function renderCoursesTab(){
+  const sec = document.getElementById('tab-courses');
+  const totalSubjects = state.courses.reduce((a,c)=>a+(c.subjects||[]).length,0);
+
+  let html = '';
+
+  html += '<div class="toolbar">';
+  html +=   '<div class="stats">';
+  html +=     '<span><b>'+state.courses.length+'</b> courses</span>';
+  html +=     '<span><b>'+totalSubjects+'</b> subjects</span>';
+  html +=     '<span><b>'+state.teachers.length+'</b> teachers</span>';
+  html +=     '<span><b>'+state.slots.filter(s=>s.type==='class').length+'</b> class slots</span>';
+  html +=   '</div>';
+  html +=   '<div style="flex:1"></div>';
+  html +=   '<button class="btn solid" data-action="open-bulk">📋 Paste from Excel</button>';
+  html +=   '<button class="btn" data-action="add-course">+ Add empty course</button>';
+  html += '</div>';
+
+  if(!state.courses.length){
+    html += '<div class="empty">'+
+      '<div class="big">📚</div>'+
+      '<h3>No courses yet — let\'s add some</h3>'+
+      '<p>Click the big green button below. Copy rows from your Excel sheet, paste, done.</p>'+
+      '<button class="btn solid" data-action="open-bulk" style="font-size:14px;padding:12px 24px">'+
+        '📋 Paste from Excel'+
+      '</button>'+
+      '<p style="margin-top:18px;font-size:12px">Or click <b>↺ Demo</b> in the top bar to see it working instantly.</p>'+
+    '</div>';
+    sec.innerHTML = html;
+    return;
+  }
+
+  html += state.courses.map(c=>courseCard(c)).join('');
+
+  sec.innerHTML = html;
+}
+
+function courseCard(c){
+  const open = state.expanded.has(c.id);
+  const slotCount = (c.slotIds||[]).length;
+  const subCount = (c.subjects||[]).length;
+  const noSlots = slotCount===0;
+  const summary = subCount+' subject'+(subCount!==1?'s':'')+' · '+
+                  slotCount+' slot'+(slotCount!==1?'s':'');
+
+  const classSlots = state.slots.filter(s=>s.type==='class');
+  const chipHTML = classSlots.map(s=>{
+    const on = (c.slotIds||[]).includes(s.id);
+    return '<button class="chip'+(on?' on':'')+
+           '" data-action="toggle-course-slot" data-cid="'+c.id+'" data-sid="'+s.id+'">'+
+           esc(s.label)+'</button>';
+  }).join('');
+
+  const teacherOptions = '<option value="">— teacher —</option>' +
+    state.teachers.map(t=>'<option value="'+t.id+'">'+esc(t.name)+'</option>').join('');
+
+  const subRows = (c.subjects||[]).map(s=>{
+    const tOpts = state.teachers.map(t=>
+      '<option value="'+t.id+'"'+(s.teacherId===t.id?' selected':'')+'>'+esc(t.name)+'</option>'
+    ).join('');
+    return '<tr>'+
+      '<td><input data-action="sub-name" data-cid="'+c.id+'" data-sid="'+s.id+'" value="'+esc(s.name)+'" placeholder="Subject name" /></td>'+
+      '<td style="width:180px"><select data-action="sub-teacher" data-cid="'+c.id+'" data-sid="'+s.id+'">'+
+        '<option value="">— teacher —</option>'+tOpts+
+      '</select></td>'+
+      '<td class="num"><input type="number" min="1" max="20" data-action="sub-sessions" data-cid="'+c.id+'" data-sid="'+s.id+'" value="'+(s.sessionsPerWeek||1)+'" style="text-align:center" /></td>'+
+      '<td class="del"><button class="icon-btn" data-action="del-subject" data-cid="'+c.id+'" data-sid="'+s.id+'" title="Remove">✕</button></td>'+
+    '</tr>';
+  }).join('');
+
+  return ''+
+    '<div class="course">'+
+      '<div class="course-head'+(open?' open':'')+'" data-action="toggle-course" data-id="'+c.id+'">'+
+        '<span class="chev">▶</span>'+
+        '<span class="cname">'+esc(c.name)+'</span>'+
+        (noSlots?'<span class="warn">⚠ no slots selected</span>':'')+
+        '<span class="summary">'+summary+'</span>'+
+        '<button class="icon-btn" data-action="del-course" data-id="'+c.id+'" title="Delete course">✕</button>'+
+      '</div>'+
+      '<div class="course-body'+(open?' open':'')+'" id="body-'+c.id+'">'+
+        '<input class="course-name-input" data-action="course-name" data-id="'+c.id+'" value="'+esc(c.name)+'" placeholder="Course name (e.g. BBA I A)" />'+
+        '<div class="slots-label">Slots used by this course — click to toggle</div>'+
+        '<div class="chips">'+chipHTML+'</div>'+
+        '<table class="sub-table">'+
+          '<thead><tr><th>Subject</th><th>Teacher</th><th style="text-align:center;width:80px">Sess/wk</th><th></th></tr></thead>'+
+          '<tbody>'+ (subRows || '<tr><td colspan="4" style="padding:18px;text-align:center;color:var(--muted)">No subjects yet. Click <b>+ Add subject</b> below.</td></tr>') +'</tbody>'+
+        '</table>'+
+        '<button class="btn ghost sm" data-action="add-subject" data-id="'+c.id+'" style="margin-top:10px">+ Add subject</button>'+
+      '</div>'+
+    '</div>';
+}
+
+/* ---- TIMETABLE TAB ---- */
+function renderTimetableTab(){
+  const sec = document.getElementById('tab-timetable');
+  const res = state.result;
+  if(!res || !res.ok){
+    sec.innerHTML = '<div class="empty">'+
+      '<div class="big">📅</div>'+
+      '<h3>No timetable generated yet</h3>'+
+      '<p>Fill in your courses, then click <b>⚡ Generate Timetable</b> in the top bar.</p>'+
+    '</div>';
+    return;
+  }
+
+  const course = findCourse(state.activeCourse) || state.courses[0];
+  if(!course){ sec.innerHTML=''; return; }
+  state.activeCourse = course.id;
+
+  let html = '';
+  if(state.stale){
+    html += '<div class="stale">⚠ Settings changed since this timetable was generated — click <b>⚡ Generate</b> again.</div>';
+  }
+
+  html += '<div class="tt-wrap">';
+
+  // course tabs
+  html += '<div class="tt-course-tabs">';
+  html += state.courses.map(c=>
+    '<button class="tt-course-tab'+(c.id===course.id?' on':'')+'" data-action="select-course" data-id="'+c.id+'">'+esc(c.name)+'</button>'
+  ).join('');
+  html += '</div>';
+
+  html += buildGridHTML(course);
+
+  // teacher load pills
+  const load = {};
+  state.courses.forEach(c=>c.subjects.forEach(s=>{
+    if(s.teacherId) load[s.teacherId] = (load[s.teacherId]||0) + (parseInt(s.sessionsPerWeek,10)||0);
+  }));
+  if(state.teachers.length){
+    html += '<div class="legend">';
+    state.teachers.forEach(t=>{
+      html += '<span class="pill">'+esc(t.name)+' <b>'+(load[t.id]||0)+' / wk</b></span>';
+    });
+    html += '</div>';
+  }
+
+  html += '</div>';
+  sec.innerHTML = html;
+}
+
+function getShownSlotIndices(course){
+  const ids = new Set(course.slotIds||[]);
+  let first=-1, last=-1;
+  state.slots.forEach((s,i)=>{
+    if(ids.has(s.id)){ if(first===-1) first=i; last=i; }
+  });
+  if(first===-1) return [];
+  const out = [];
+  for(let i=first;i<=last;i++) out.push(i);
+  return out;
+}
+
+function buildGridHTML(course){
+  const grid = state.result.grids[course.id] || {};
+  const shown = getShownSlotIndices(course);
+  const days = ALL_DAYS.filter(d=>state.days.includes(d.key));
+
+  if(!shown.length){
+    return '<div style="padding:40px;text-align:center;color:var(--muted)">'+
+      'This course has no slots ticked. Edit it in the Courses tab.</div>';
+  }
+
+  let html = '<table class="tt">';
+  html += '<thead><tr><th style="width:110px">Day \\ Time</th>';
+  shown.forEach(si=>{
+    const s = state.slots[si];
+    const isRec = s.type!=='class';
+    html += '<th class="'+(isRec?'recess':'')+'">'+esc(s.label)+
+            (isRec?'<em>Recess</em>':'')+'</th>';
+  });
+  html += '</tr></thead><tbody>';
+
+  days.forEach(d=>{
+    html += '<tr><th>'+d.short+'<span>'+d.label+'</span></th>';
+    shown.forEach(si=>{
+      const s = state.slots[si];
+      if(s.type!=='class'){
+        html += '<td class="recess">— recess —</td>';
+        return;
+      }
+      const c = (grid[d.key]||{})[si];
+      if(c){
+        html += '<td class="filled"><b>'+esc(c.subjectName)+'</b><span>'+esc(c.teacherName)+'</span></td>';
+      }else{
+        html += '<td></td>';
+      }
+    });
+    html += '</tr>';
+  });
+
+  html += '</tbody></table>';
+  return html;
+}
+
+/* ---- TEACHER VIEW TAB ---- */
+function renderTeacherTab(){
+  const sec = document.getElementById('tab-teachers');
+
+  if(!state.teachers.length){
+    sec.innerHTML = '<div class="empty">'+
+      '<div class="big">👩‍🏫</div>'+
+      '<h3>No teachers yet</h3>'+
+      '<p>Add teachers in the left panel, or paste course data (teachers are auto-created).</p>'+
+    '</div>';
+    return;
+  }
+  if(!state.result || !state.result.ok){
+    sec.innerHTML = '<div class="empty">'+
+      '<div class="big">📅</div>'+
+      '<h3>Generate a timetable first</h3>'+
+      '<p>Then come back here to see each teacher\'s personal week view.</p>'+
+    '</div>';
+    return;
+  }
+
+  let activeId = state.activeTeacher;
+  if(!activeId || !findTeacher(activeId)) activeId = state.teachers[0].id;
+  state.activeTeacher = activeId;
+
+  const t = findTeacher(activeId);
+
+  // Build this teacher's week: slotIdx -> dayKey -> {course, subject}
+  const weekMap = {};
+  const usedSlotIdx = new Set();
+
+  state.courses.forEach(c=>{
+    const g = state.result.grids[c.id] || {};
+    days.forEach(d=>{
+      const cell = g[d.key] || {};
+      Object.keys(cell).forEach(siStr=>{
+        const si = parseInt(siStr,10);
+        const info = cell[si];
+        if(info.teacherName === t.name){
+          weekMap[si] = weekMap[si] || {};
+          weekMap[si][d.key] = { course:c.name, subject:info.subjectName };
+          usedSlotIdx.add(si);
+        }
+      });
+    });
+  });
+
+  // Determine which slots to show: union of teacher's busy slots + class slots between them
+  let shown = [];
+  if(usedSlotIdx.size){
+    const arr = [...usedSlotIdx].sort((a,b)=>a-b);
+    const first = arr[0], last = arr[arr.length-1];
+    for(let i=first;i<=last;i++) shown.push(i);
+  }else{
+    shown = state.slots.map((s,i)=>({s,i})).filter(x=>x.s.type==='class').map(x=>x.i);
+  }
+
+  const days = ALL_DAYS.filter(d=>state.days.includes(d.key));
+
+  let html = '';
+  html += '<div class="teacher-picker">';
+  html +=   '<label>Show week for</label>';
+  html +=   '<select data-action="select-teacher">';
+  html +=     state.teachers.map(x=>
+    '<option value="'+x.id+'"'+(x.id===t.id?' selected':'')+'>'+esc(x.name)+'</option>'
+  ).join('');
+  html +=   '</select>';
+  html +=   '<span style="color:var(--muted);font-size:12.5px">'+
+              'Total sessions this week: <b>'+Object.keys(weekMap).reduce((a,k)=>a+Object.keys(weekMap[k]).length,0)+'</b>'+
+            '</span>';
+  html += '</div>';
+
+  html += '<div class="tt-wrap">';
+  if(!shown.length){
+    html += '<div style="padding:40px;text-align:center;color:var(--muted)">This teacher has no classes yet.</div>';
+  }else{
+    html += '<table class="tt">';
+    html += '<thead><tr><th style="width:110px">Day \\ Time</th>';
+    shown.forEach(si=>{
+      const s = state.slots[si];
+      const isRec = s.type!=='class';
+      html += '<th class="'+(isRec?'recess':'')+'">'+esc(s.label)+
+              (isRec?'<em>Recess</em>':'')+'</th>';
+    });
+    html += '</tr></thead><tbody>';
+
+    days.forEach(d=>{
+      html += '<tr><th>'+d.short+'<span>'+d.label+'</span></th>';
+      shown.forEach(si=>{
+        const s = state.slots[si];
+        if(s.type!=='class'){
+          html += '<td class="recess">—</td>';
+          return;
+        }
+        const info = weekMap[si] && weekMap[si][d.key];
+        if(info){
+          html += '<td class="filled"><b>'+esc(info.subject)+'</b><span>'+esc(info.course)+'</span></td>';
+        }else{
+          html += '<td></td>';
+        }
+      });
+      html += '</tr>';
+    });
+    html += '</tbody></table>';
+  }
+  html += '</div>';
+
+  sec.innerHTML = html;
+}
+
+/* ============================================================================
+   PART 6 — EVENTS
+   ============================================================================ */
+document.addEventListener('click', e=>{
+  // Tab switching
+  const tab = e.target.closest('.tab');
+  if(tab && tab.dataset.tab){
+    state.activeTab = tab.dataset.tab;
+    renderTabs();
+    if(state.activeTab==='timetable') renderTimetableTab();
+    if(state.activeTab==='teachers') renderTeacherTab();
+    return;
+  }
+
+  const el = e.target.closest('[data-action]');
+  if(!el) return;
+  const a = el.dataset.action;
+  const id = el.dataset.id;
+
+  // top-bar actions
+  if(a==='demo')          { loadDemo(); renderAll(); toast('Demo loaded — click ⚡ Generate Timetable.'); return; }
+  if(a==='generate')      { generate(); return; }
+  if(a==='export-excel')  { exportExcel(); return; }
+  if(a==='export-json')   { exportJSON(); return; }
+  if(a==='import-json')   { importJSON(); return; }
+  if(a==='help')          { openModal('helpModal'); return; }
+  if(a==='close-modal')   { closeAllModals(); return; }
+  if(a==='open-bulk')     { openModal('bulkModal'); return; }
+  if(a==='bulk-example')  { fillBulkExample(); return; }
+  if(a==='bulk-import')   { applyBulkImport(); return; }
+
+  // days
+  if(a==='toggle-day'){
+    const k = el.dataset.key;
+    const s = new Set(state.days);
+    s.has(k) ? s.delete(k) : s.add(k);
+    state.days = ALL_DAYS.filter(d=>s.has(d.key)).map(d=>d.key);
+    markStale(); renderDays(); return;
+  }
+
+  // slots
+  if(a==='add-slot'){
+    state.slots.push({id:uid('sl'),label:'New slot',type:'class'});
+    markStale(); renderSlots(); renderCoursesTab(); return;
+  }
+  if(a==='del-slot'){
+    state.slots = state.slots.filter(s=>s.id!==id);
+    state.courses.forEach(c=>{
+      c.slotIds = (c.slotIds||[]).filter(x=>x!==id);
+    });
+    markStale(); renderSlots(); renderCoursesTab(); return;
+  }
+
+  // teachers
+  if(a==='add-teacher'){
+    const inp = document.getElementById('newTeacher');
+    const name = (inp.value||'').trim();
+    if(!name){ inp.focus(); return; }
+    state.teachers.push({id:uid('t'),name});
+    inp.value='';
+    markStale(); renderTeachers(); renderCoursesTab();
+    toast('Teacher "'+name+'" added.');
+    return;
+  }
+  if(a==='del-teacher'){
+    state.teachers = state.teachers.filter(t=>t.id!==id);
+    state.courses.forEach(c=>c.subjects.forEach(s=>{
+      if(s.teacherId===id) s.teacherId=null;
+    }));
+    markStale(); renderTeachers(); renderCoursesTab();
+    return;
+  }
+
+  // courses
+  if(a==='add-course'){
+    state.courses.push({
+      id:uid('c'), name:'New Course',
+      slotIds: state.slots.filter(s=>s.type==='class').slice(0,3).map(s=>s.id),
+      subjects:[{id:uid('s'),name:'Subject 1',teacherId:null,sessionsPerWeek:2}]
+    });
+    markStale(); renderCoursesTab();
+    return;
+  }
+  if(a==='del-course'){
+    e.stopPropagation();
+    if(!confirm('Delete this course?')) return;
+    state.courses = state.courses.filter(c=>c.id!==id);
+    if(state.activeCourse===id) state.activeCourse = state.courses[0]?.id || null;
+    markStale(); renderCoursesTab(); return;
+  }
+  if(a==='toggle-course'){
+    if(state.expanded.has(id)) state.expanded.delete(id);
+    else state.expanded.add(id);
+    renderCoursesTab();
+    return;
+  }
+  if(a==='add-subject'){
+    const c = findCourse(id);
+    if(c) c.subjects.push({id:uid('s'),name:'New Subject',teacherId:null,sessionsPerWeek:2});
+    markStale(); renderCoursesTab();
+    return;
+  }
+  if(a==='del-subject'){
+    const c = findCourse(el.dataset.cid);
+    if(c) c.subjects = c.subjects.filter(s=>s.id!==el.dataset.sid);
+    markStale(); renderCoursesTab();
+    return;
+  }
+  if(a==='toggle-course-slot'){
+    const c = findCourse(el.dataset.cid);
+    const sid = el.dataset.sid;
+    if(!c) return;
+    const set = new Set(c.slotIds||[]);
+    set.has(sid) ? set.delete(sid) : set.add(sid);
+    // keep in global slot order
+    c.slotIds = state.slots.filter(s=>set.has(s.id)).map(s=>s.id);
+    markStale(); renderCoursesTab();
+    return;
+  }
+
+  if(a==='select-course'){
+    state.activeCourse = el.dataset.id;
+    renderTimetableTab();
+    return;
+  }
+
+  if(a==='select-teacher'){ /* handled via change event */ }
+});
+
+/* live edits */
+document.addEventListener('input', e=>{
+  const el = e.target.closest('[data-action]');
+  if(!el) return;
+  const a = el.dataset.action;
+  const id = el.dataset.id;
+  const cid = el.dataset.cid;
+  const sid = el.dataset.sid;
+
+  if(a==='slot-label'){
+    const s = state.slots.find(x=>x.id===id);
+    if(s){ s.label = el.value; markStale(); }
+  } else if(a==='teacher-name'){
+    const t = findTeacher(id);
+    if(t){ t.name = el.value; markStale(); }
+  } else if(a==='course-name'){
+    const c = findCourse(id);
+    if(c){ c.name = el.value; markStale(); }
+  } else if(a==='sub-name'){
+    const c = findCourse(cid);
+    const s = c && c.subjects.find(x=>x.id===sid);
+    if(s){ s.name = el.value; markStale(); }
+  } else if(a==='sub-sessions'){
+    const c = findCourse(cid);
+    const s = c && c.subjects.find(x=>x.id===sid);
+    if(s){
+      s.sessionsPerWeek = Math.max(1, Math.min(40, parseInt(el.value,10)||1));
+      markStale();
+    }
+  } else if(a==='maxPerDay'){
+    state.options.maxSessionsPerSubjectPerDay =
+      Math.max(1, Math.min(10, parseInt(el.value,10)||1));
+    markStale();
+  }
+});
+
+document.addEventListener('change', e=>{
+  const el = e.target.closest('[data-action]');
+  if(!el) return;
+  const a = el.dataset.action;
+
+  if(a==='slot-type'){
+    const s = state.slots.find(x=>x.id===el.dataset.id);
+    if(s){ s.type = el.value==='recess'?'recess':'class'; markStale(); renderCoursesTab(); }
+  } else if(a==='sub-teacher'){
+    const c = findCourse(el.dataset.cid);
+    const s = c && c.subjects.find(x=>x.id===el.dataset.sid);
+    if(s){ s.teacherId = el.value || null; markStale(); }
+  } else if(a==='select-teacher'){
+    state.activeTeacher = el.value;
+    renderTeacherTab();
+  }
+});
+
+document.getElementById('newTeacher').addEventListener('keydown', e=>{
+  if(e.key==='Enter'){ e.preventDefault();
+    document.querySelector('[data-action="add-teacher"]').click(); }
+});
+
+// Modal keyboard/backdrop close
+document.querySelectorAll('.overlay').forEach(o=>{
+  o.addEventListener('click', e=>{
+    if(e.target===o) closeAllModals();
+  });
+});
+document.addEventListener('keydown', e=>{
+  if(e.key==='Escape') closeAllModals();
+});
+
+function openModal(id){ document.getElementById(id).classList.add('show'); }
+function closeAllModals(){
+  document.querySelectorAll('.overlay').forEach(o=>o.classList.remove('show'));
+}
+
+/* ============================================================================
+   PART 7 — GENERATE
+   ============================================================================ */
+function generate(){
+  if(!state.courses.length){ toast('Add at least one course first.','err'); return; }
+  if(!state.days.length){ toast('Select at least one working day.','err'); return; }
+
+  const cfg = {
+    days:     ALL_DAYS.filter(d=>state.days.includes(d.key)),
+    slots:    state.slots,
+    teachers: state.teachers,
+    courses:  state.courses,
+    options: {
+      maxSessionsPerSubjectPerDay: state.options.maxSessionsPerSubjectPerDay,
+      restarts: 30,
+      nodeLimit: 200000
+    }
+  };
+
+  document.getElementById('spinOverlay').classList.add('show');
+  const t0 = performance.now();
+
+  setTimeout(()=>{
+    let res;
+    try{ res = TimetableEngine.generate(cfg); }
+    finally{
+      document.getElementById('spinOverlay').classList.remove('show');
+    }
+    const ms = Math.round(performance.now()-t0);
+
+    if(!res.ok){
+      state.result = null;
+      toast(res.problems[0], 'err');
+      console.error('Solver problems:', res.problems);
+      state.activeTab='timetable';
+      renderTabs(); renderTimetableTab(); renderTeacherTab();
+      return;
+    }
+
+    state.result = {
+      ok:true,
+      assignments:res.assignments,
+      grids:TimetableEngine.buildGrids(cfg, res.assignments),
+      config:cfg
+    };
+    state.stale = false;
+    if(!findCourse(state.activeCourse) && state.courses[0])
+      state.activeCourse = state.courses[0].id;
+    if(!state.activeTeacher && state.teachers[0])
+      state.activeTeacher = state.teachers[0].id;
+
+    updateGenerateButton();
+    renderTimetableTab();
+    renderTeacherTab();
+
+    toast('Timetable ready in '+ms+' ms — '+state.courses.length+
+          ' course(s), '+state.teachers.length+' teacher(s), no conflicts.');
+
+    state.activeTab='timetable';
+    renderTabs();
+  }, 50);
+}
+
+/* ============================================================================
+   PART 8 — BULK IMPORT
+   ============================================================================ */
+function fillBulkExample(){
+  const ta = document.getElementById('bulkText');
+  ta.value =
+`BBA I A\tBBADC101-IS\t3\t\t10-11am,11-12am,12-1pm
+BBA I A\tBBADC102-AA\t3
+BBA I A\tMCSVC101-DMB\t3
+BBA I B\tBBADC103-BMK\t3\t\t10-11am,11-12am,12-1pm
+BBA I B\tBBADC101-IS\t3
+BBA I B\tBBADC102-Prashi\t3
+BBA I C\tBBADC101-AP\t3\t\t10-11am,11-12am,12-1pm
+BBA I C\tBBADC103-AV\t3
+BBA I C\tAEC-1-DDP\t3
+BBA V A\tBBADC501-AV\t3\t\t2-3pm,3-4pm,4-5pm
+BBA V A\tBBADC502-DYT\t3
+BBA V A\tBBADC503-DMB\t3
+MBA I\tMECO-103-DPJ\t3\t\t10-11am,11-12am,12-1pm,2-3pm,3-4pm,4-5pm
+MBA I\tAFMA-103-DDV\t3
+MBA I\tMPOB-101-AV\t3
+MBA I\tBSLA-106-IS\t3`;
+  ta.focus();
+}
+
+function applyBulkImport(){
+  const raw = document.getElementById('bulkText').value.split(/\r?\n/);
+  const byCourse = new Map();     // name -> {slots:[], subjects:[]}
+  const order = [];
+  const errs = [];
+
+  const labelToId = {};
+  state.slots.forEach(s=>labelToId[s.label.toLowerCase()]=s.id);
+
+  raw.forEach((line,idx)=>{
+    const ln = idx+1;
+    const t = line.trim();
+    if(!t || t.startsWith('#')) return;
+
+    // detect separator: tab > pipe > comma
+    let sep = '\t';
+    if(t.indexOf('\t')===-1){
+      if(t.indexOf('|')!==-1) sep='|';
+      else if(t.indexOf(',')!==-1 && t.split(',').length>=2) sep=',';
+    }
+    // be careful: comma is also used in the slots column. Better: prefer tab or pipe.
+    // If neither present, split by 2+ spaces.
+    let parts;
+    if(t.indexOf('\t')!==-1) parts = t.split('\t');
+    else if(t.indexOf('|')!==-1) parts = t.split('|');
+    else parts = t.split(/\s{2,}/);
+
+    parts = parts.map(p=>p.trim());
+    if(parts.length<2){ errs.push('Line '+ln+': needs at least Course + Subject'); return; }
+
+    const cname = parts[0];
+    const subjRaw = parts[1];
+    let teacher = parts[2] || '';
+    const nRaw = parts[3] || '';
+    const slotRaw = parts[4] || '';
+
+    let n = parseInt(nRaw,10);
+    if(!n || n<1) n = 2;
+
+    // auto-split "SUBJ-TEACHER"
+    let subjName = subjRaw;
+    if(!teacher && subjRaw.includes('-')){
+      const lastDash = subjRaw.lastIndexOf('-');
+      const base = subjRaw.slice(0,lastDash).trim();
+      const suffix = subjRaw.slice(lastDash+1).trim();
+      if(base && suffix && suffix.length<=15 && !/\s/.test(suffix)){
+        subjName = base;
+        teacher = suffix;
+      }
+    }
+
+    if(!byCourse.has(cname)){
+      byCourse.set(cname,{slots:[], subjects:[]});
+      order.push(cname);
+    }
+    const bucket = byCourse.get(cname);
+
+    if(slotRaw && bucket.slots.length===0){
+      slotRaw.split(',').map(s=>s.trim()).filter(Boolean).forEach(sl=>{
+        const id = labelToId[sl.toLowerCase()];
+        if(id) bucket.slots.push(id);
+        else errs.push('Line '+ln+': unknown slot "'+sl+'"');
+      });
+    }
+
+    bucket.subjects.push({name:subjName, teacher, n});
+  });
+
+  if(!byCourse.size){
+    toast('Nothing to import — check the format.', 'err');
+    return;
+  }
+
+  // ensure teachers
+  const tmap = {};
+  state.teachers.forEach(t=>tmap[t.name]=t.id);
+  function getOrMake(name){
+    if(!name) return null;
+    if(tmap[name]) return tmap[name];
+    const t = {id:uid('t'), name};
+    state.teachers.push(t);
+    tmap[name] = t.id;
+    return t.id;
+  }
+
+  // replace or merge courses
+  const existing = {};
+  state.courses.forEach(c=>existing[c.name]=c);
+  let addedSubs = 0;
+
+  order.forEach(cname=>{
+    const info = byCourse.get(cname);
+    const classSlots = state.slots.filter(s=>s.type==='class').map(s=>s.id);
+    const slots = info.slots.length ? info.slots : classSlots.slice(0,3);
+
+    const subs = info.subjects.map(s=>({
+      id:uid('s'),
+      name:s.name,
+      teacherId:getOrMake(s.teacher),
+      sessionsPerWeek:Math.max(1,Math.min(40,s.n))
+    }));
+    addedSubs += subs.length;
+
+    if(existing[cname]){
+      existing[cname].slotIds = slots;
+      existing[cname].subjects = subs;
+    }else{
+      const c = {id:uid('c'), name:cname, slotIds:slots, subjects:subs};
+      state.courses.push(c);
+      existing[cname]=c;
+    }
+  });
+
+  markStale();
+  renderTeachers();
+  renderCoursesTab();
+  renderTimetableTab();
+  renderTeacherTab();
+  closeAllModals();
+
+  const msg = 'Imported '+order.length+' course(s) and '+addedSubs+' subject row(s).';
+  if(errs.length) toast(msg+' ('+errs.length+' minor issue'+(errs.length>1?'s':'')+')');
+  else toast(msg+' Click ⚡ Generate.');
+}
+
+/* ============================================================================
+   PART 9 — EXPORT / IMPORT
+   ============================================================================ */
+function aoaFor(course){
+  const grid = state.result.grids[course.id] || {};
+  const shown = getShownSlotIndices(course);
+  const days = ALL_DAYS.filter(d=>state.days.includes(d.key));
+
+  const header = ['Day / Time'].concat(shown.map(si=>state.slots[si].label));
+  const aoa = [header];
+  days.forEach(d=>{
+    const row = [d.label];
+    shown.forEach(si=>{
+      const s = state.slots[si];
+      if(s.type!=='class'){ row.push('RECESS'); return; }
+      const c = (grid[d.key]||{})[si];
+      row.push(c ? (c.subjectName+' ('+c.teacherName+')') : '');
+    });
+    aoa.push(row);
+  });
+  return aoa;
+}
+
+function exportExcel(){
+  if(!state.result || !state.result.ok){
+    toast('Please generate a timetable first.', 'err'); return;
+  }
+  if(typeof XLSX==='undefined'){
+    toast('Excel library not loaded — exporting CSV instead.');
+    exportCSV(); return;
+  }
+
+  const wb = XLSX.utils.book_new();
+  const safe = n => n.replace(/[\\\/\?\*\[\]:]/g,'-').slice(0,31) || 'Sheet';
+
+  state.courses.forEach(c=>{
+    const ws = XLSX.utils.aoa_to_sheet(aoaFor(c));
+    ws['!cols'] = [{wch:14}].concat(
+      (ws['!ref'] ? XLSX.utils.decode_range(ws['!ref']).e.c : 6)
+        .toString().padStart(1,' ').split('').map(()=>({wch:26}))
+    );
+    // simpler:
+    ws['!cols'] = new Array((ws['!ref']?XLSX.utils.decode_range(ws['!ref']).e.c+1:7))
+                   .fill(0).map((_,i)=>i===0?{wch:16}:{wch:26});
+    ws['!rows'] = [{hpt:22}];
+    XLSX.utils.book_append_sheet(wb, ws, safe(c.name));
+  });
+
+  // teacher load summary
+  const load = {};
+  state.courses.forEach(c=>c.subjects.forEach(s=>{
+    if(!s.teacherId) return;
+    load[s.teacherId] = load[s.teacherId] || {};
+    load[s.teacherId][c.name] = (load[s.teacherId][c.name]||0) + (parseInt(s.sessionsPerWeek,10)||0);
+  }));
+  const cnames = state.courses.map(c=>c.name);
+  const summary = [['Teacher'].concat(cnames).concat(['Total / week'])];
+  state.teachers.forEach(t=>{
+    const row = [t.name]; let total=0;
+    cnames.forEach(cn=>{
+      const v = (load[t.id] && load[t.id][cn]) || 0;
+      total += v;
+      row.push(v || '');
+    });
+    row.push(total);
+    summary.push(row);
+  });
+  const ws2 = XLSX.utils.aoa_to_sheet(summary);
+  ws2['!cols'] = [{wch:22}].concat(cnames.map(()=>({wch:18}))).concat([{wch:13}]);
+  XLSX.utils.book_append_sheet(wb, ws2, 'Teacher Load');
+
+  const fname = 'Timetable_'+new Date().toISOString().slice(0,10)+'.xlsx';
+  XLSX.writeFile(wb, fname);
+  toast('Downloaded '+fname);
+}
+
+function exportCSV(){
+  const rows = [];
+  state.courses.forEach(c=>{
+    rows.push([c.name]);
+    aoaFor(c).forEach(r=>rows.push(r));
+    rows.push([]);
+  });
+  const csv = rows.map(r=>r.map(v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"').join(',')).join('\r\n');
+  const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href=url; a.download='Timetable_'+new Date().toISOString().slice(0,10)+'.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast('CSV downloaded.');
+}
+
+function exportJSON(){
+  const data = {
+    days:state.days, slots:state.slots, teachers:state.teachers,
+    courses:state.courses, options:state.options
+  };
+  const blob = new Blob([JSON.stringify(data,null,2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href=url; a.download='timetable_'+new Date().toISOString().slice(0,10)+'.json';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast('Saved JSON file.');
+}
+
+function importJSON(){
+  const inp = document.createElement('input');
+  inp.type='file'; inp.accept='.json,application/json';
+  inp.onchange = e=>{
+    const f = e.target.files[0]; if(!f) return;
+    const reader = new FileReader();
+    reader.onload = ev=>{
+      try{
+        const d = JSON.parse(ev.target.result);
+        if(!d || !Array.isArray(d.courses)) throw new Error('bad file');
+        state.days     = d.days||state.days;
+        state.slots    = d.slots||state.slots;
+        state.teachers = d.teachers||[];
+        state.courses  = d.courses.map(c=>({
+          id: uid('c'), name:c.name,
+          slotIds: c.slotIds||[],
+          subjects: (c.subjects||[]).map(s=>({
+            id:uid('s'), name:s.name,
+            teacherId:s.teacherId||null,
+            sessionsPerWeek:parseInt(s.sessionsPerWeek,10)||2
+          }))
+        }));
+        state.options = d.options||state.options;
+        state.result=null; state.stale=true;
+        state.activeCourse = state.courses[0]?.id || null;
+        state.activeTeacher = state.teachers[0]?.id || null;
+        renderAll();
+        toast('Imported '+state.courses.length+' course(s).');
+      }catch(err){
+        toast('Could not read that file.', 'err');
+      }
+    };
+    reader.readAsText(f);
+  };
+  inp.click();
+}
+
+/* ============================================================================
+   PART 10 — BOOT
+   ============================================================================ */
+if(!restore()) loadDemo();
+state.activeCourse  = state.courses[0]?.id || null;
+state.activeTeacher = state.teachers[0]?.id || null;
+renderAll();
+if(!state.courses.length) state.activeTab='courses';
+renderTabs();
+
+// expose for your ERP
+window.ERPTimetable = {
+  engine: TimetableEngine,
+  getState: ()=>state,
+  setData: (partial)=>{
+    Object.keys(partial||{}).forEach(k=>state[k]=partial[k]);
+    state.result=null; state.stale=true; renderAll();
+  },
+  generate, exportExcel, exportJSON, importJSON,
+  onRender: renderAll
+};
+</script>
+</body>
+</html>

@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Attendance Studio — ERP Attendance Module</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="myerp-auth.js"></script>
+<style>body.checking{visibility:hidden}</style>
+<script>MyERP.requireLogin().then(function(u){ if(u) document.body.classList.remove('checking'); });</script>
+<style>
+  :root{
+    --emerald-900:#064e3b; --emerald-800:#065f46; --emerald-700:#047857;
+    --emerald-600:#059669; --emerald-500:#10b981; --emerald-400:#34d399;
+    --emerald-200:#a7f3d0; --emerald-100:#d1fae5; --emerald-50:#ecfdf5;
+    --bg:#f0f7f3; --card:#ffffff; --soft:#f8fbf9;
+    --border:#d7e5dc; --text:#0f2419; --muted:#5b7a6a;
+    --danger:#dc2626; --danger-bg:#fee2e2;
+    --amber:#92400e; --amber-bg:#fffbeb; --amber-solid:#d97706;
+    --info:#1d4ed8; --info-bg:#dbeafe;
+    --slate:#475569; --slate-bg:#eef2f5;
+    --shadow:0 1px 3px rgba(15,36,25,.06),0 8px 24px rgba(15,36,25,.06);
+  }
+  :root:not([data-theme="light"]){
+    @media (prefers-color-scheme: dark){
+      --bg:#08130d; --card:#0e1e16; --soft:#0c1913;
+      --border:#1e3628; --text:#e7f5ec; --muted:#83a795;
+      --danger-bg:#3a1414; --amber-bg:#3a2a0c; --info-bg:#0f2447; --slate-bg:#1a2530;
+      --shadow:0 1px 3px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.3);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#08130d; --card:#0e1e16; --soft:#0c1913;
+    --border:#1e3628; --text:#e7f5ec; --muted:#83a795;
+    --danger-bg:#3a1414; --amber-bg:#3a2a0c; --info-bg:#0f2447; --slate-bg:#1a2530;
+    --shadow:0 1px 3px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.3);
+  }
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:'Inter',ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,
+                "Helvetica Neue",Arial,sans-serif;
+    font-size:14px;line-height:1.5;color:var(--text);background:var(--bg);
+    -webkit-font-smoothing:antialiased;
+  }
+  button{font-family:inherit;cursor:pointer}
+  input,select,textarea{font-family:inherit}
+
+  /* ===================== TOP BAR ===================== */
+  .topbar{
+    height:62px;position:sticky;top:0;z-index:50;display:flex;align-items:center;
+    gap:14px;padding:0 22px;color:#fff;
+    background:linear-gradient(135deg,var(--emerald-800),var(--emerald-600));
+    box-shadow:0 2px 10px rgba(15,36,25,.14);
+  }
+  .topbar .logo{
+    width:40px;height:40px;border-radius:11px;flex:none;
+    background:rgba(255,255,255,.18);display:grid;place-items:center;
+    font-weight:800;font-size:15px;letter-spacing:.5px;
+    border:1px solid rgba(255,255,255,.22);
+  }
+  .topbar .titles{display:flex;flex-direction:column;line-height:1.15;min-width:0}
+  .topbar .titles strong{font-size:15px;font-weight:700;letter-spacing:.2px}
+  .topbar .titles span{font-size:10.5px;color:#a7f3d0;letter-spacing:.9px;
+                        text-transform:uppercase;font-weight:600}
+  .topbar .spacer{flex:1}
+  .topbar .btn{
+    border:none;border-radius:10px;padding:9px 14px;font-size:13px;font-weight:600;
+    color:#fff;background:rgba(255,255,255,.14);display:inline-flex;
+    align-items:center;gap:7px;transition:all .15s;white-space:nowrap;
+  }
+  .topbar .btn:hover{background:rgba(255,255,255,.25);transform:translateY(-1px)}
+  .topbar .btn.primary{
+    background:#fff;color:var(--emerald-800);
+    box-shadow:0 6px 18px rgba(0,0,0,.18);
+  }
+  .topbar .btn.primary:hover{background:var(--emerald-50);color:var(--emerald-900)}
+  .topbar .btn.pulse{ animation:glow 1.8s ease-in-out infinite; }
+  @keyframes glow{
+    0%,100%{box-shadow:0 6px 18px rgba(0,0,0,.18)}
+    50%{box-shadow:0 6px 26px rgba(255,255,255,.5)}
+  }
+
+  /* ===================== LAYOUT ===================== */
+  .app{display:grid;grid-template-columns:340px 1fr;min-height:calc(100vh - 62px)}
+  @media(max-width:1000px){.app{grid-template-columns:1fr}}
+
+  .sidebar{
+    background:var(--card);border-right:1px solid var(--border);
+    padding:16px 16px 40px;overflow-y:auto;
+    max-height:calc(100vh - 62px);position:sticky;top:62px;
+  }
+  @media(max-width:1000px){.sidebar{position:static;max-height:none}}
+  .main{padding:22px 24px 60px;overflow-x:hidden;min-width:0}
+
+  /* ===================== SIDEBAR CARDS ===================== */
+  .card{
+    background:var(--soft);border:1px solid var(--border);border-radius:14px;
+    padding:14px;margin-bottom:12px;
+  }
+  .card h3{
+    font-size:11px;text-transform:uppercase;letter-spacing:.9px;color:var(--muted);
+    font-weight:800;margin-bottom:12px;display:flex;align-items:center;gap:9px;
+  }
+  .card h3 .num{
+    width:20px;height:20px;border-radius:50%;flex:none;
+    background:var(--emerald-600);color:#fff;display:grid;place-items:center;
+    font-size:11px;font-weight:800;letter-spacing:0;
+  }
+  .card .hint{font-size:11px;color:var(--muted);margin-top:8px;line-height:1.45}
+  .field{margin-bottom:10px}
+  .field label{display:block;font-size:11.5px;font-weight:700;color:var(--muted);margin-bottom:5px}
+  .field input,.field select{
+    width:100%;font-size:13px;padding:8px 10px;border:1px solid var(--border);
+    border-radius:9px;background:var(--card);color:var(--text);
+  }
+  .field input:focus,.field select:focus{
+    outline:2px solid var(--emerald-200);outline-offset:0;border-color:var(--emerald-400);
+  }
+  .field-row{display:flex;gap:8px}
+  .field-row .field{flex:1}
+
+  /* ===================== BUTTONS ===================== */
+  .btn{
+    border:1px solid var(--border);border-radius:9px;background:var(--card);color:var(--text);
+    padding:8px 13px;font-size:13px;font-weight:600;transition:all .15s;
+    display:inline-flex;align-items:center;gap:6px;white-space:nowrap;
+  }
+  .btn:hover{background:var(--emerald-50);border-color:var(--emerald-400)}
+  .btn.solid{background:var(--emerald-600);color:#fff;border-color:var(--emerald-600)}
+  .btn.solid:hover{background:var(--emerald-500);border-color:var(--emerald-500)}
+  .btn.ghost{background:transparent;color:var(--muted);border-style:dashed}
+  .btn.ghost:hover{background:var(--emerald-50);color:var(--emerald-700)}
+  .btn.sm{padding:6px 11px;font-size:12px;border-radius:8px}
+  .btn.xs{padding:4px 9px;font-size:11.5px;border-radius:7px}
+  .btn.block{width:100%;justify-content:center}
+  .icon-btn{
+    border:none;background:transparent;color:#b6c6bd;border-radius:7px;
+    padding:5px 7px;font-size:13px;line-height:1;transition:all .15s;
+  }
+  .icon-btn:hover{background:var(--danger-bg);color:var(--danger)}
+
+  /* ===================== CHIPS / STATUS PILLS ===================== */
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chip{
+    border:1px solid var(--border);background:var(--card);color:var(--muted);
+    border-radius:999px;padding:6px 13px;font-size:12.5px;font-weight:700;
+    transition:all .15s;
+  }
+  .chip:hover{border-color:var(--emerald-400);color:var(--emerald-700)}
+  .chip.on{background:var(--emerald-600);border-color:var(--emerald-600);color:#fff}
+  .chip.on:hover{background:var(--emerald-500)}
+
+  .status-btn{
+    border:1.5px solid var(--border);background:var(--card);color:var(--muted);
+    border-radius:8px;padding:7px 0;font-size:12px;font-weight:800;width:42px;
+    text-align:center;transition:all .12s;
+  }
+  .status-btn[data-s="P"].on{background:var(--emerald-600);border-color:var(--emerald-600);color:#fff}
+  .status-btn[data-s="A"].on{background:var(--danger);border-color:var(--danger);color:#fff}
+  .status-btn[data-s="L"].on{background:var(--amber-solid);border-color:var(--amber-solid);color:#fff}
+  .status-btn[data-s="E"].on{background:var(--slate);border-color:var(--slate);color:#fff}
+  .status-btn:hover{border-color:var(--emerald-400)}
+
+  .legend-row{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);margin-bottom:7px}
+  .dot{width:10px;height:10px;border-radius:3px;flex:none}
+  .dot.P{background:var(--emerald-600)} .dot.A{background:var(--danger)}
+  .dot.L{background:var(--amber-solid)} .dot.E{background:var(--slate)}
+
+  /* ===================== LISTS ===================== */
+  .list{display:flex;flex-direction:column;gap:6px}
+  .row-item{display:flex;gap:6px;align-items:center}
+  .row-item .idx{width:18px;text-align:center;color:#b6c6bd;font-weight:800;font-size:11px;flex:none}
+  .row-item input,.row-item select{
+    font-size:12.5px;padding:6px 9px;border:1px solid var(--border);border-radius:8px;
+    background:var(--card);color:var(--text);width:100%;min-width:0;
+  }
+  .row-item .grow{flex:1}
+
+  /* ===================== TABS ===================== */
+  .tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:18px}
+  .tab{
+    border:none;background:transparent;color:var(--muted);font-size:13.5px;
+    font-weight:700;padding:10px 18px;border-bottom:3px solid transparent;
+    margin-bottom:-1px;transition:all .15s;border-radius:8px 8px 0 0;
+  }
+  .tab:hover{color:var(--emerald-700);background:var(--emerald-50)}
+  .tab.on{color:var(--emerald-700);border-bottom-color:var(--emerald-600)}
+
+  /* ===================== TOOLBAR / STATS ===================== */
+  .toolbar{
+    display:flex;align-items:center;gap:18px;flex-wrap:wrap;
+    background:var(--card);border:1px solid var(--border);border-radius:14px;
+    padding:14px 16px;margin-bottom:16px;box-shadow:var(--shadow);
+  }
+  .stat{display:flex;flex-direction:column;gap:2px}
+  .stat b{font-size:18px;font-weight:800;color:var(--text)}
+  .stat span{font-size:10.5px;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);font-weight:700}
+  .stat.present b{color:var(--emerald-600)} .stat.absent b{color:var(--danger)}
+  .stat.late b{color:var(--amber-solid)} .stat.pct b{color:var(--emerald-700)}
+  .toolbar .search{margin-left:auto;min-width:180px}
+  .toolbar .search input{
+    width:100%;font-size:13px;padding:8px 12px;border:1px solid var(--border);
+    border-radius:9px;background:var(--soft);color:var(--text);
+  }
+
+  /* ===================== MARK TAB ===================== */
+  .panel{
+    background:var(--card);border:1px solid var(--border);border-radius:14px;
+    box-shadow:var(--shadow);overflow:hidden;
+  }
+  .mark-row{
+    display:flex;align-items:center;gap:12px;padding:11px 14px;
+    border-bottom:1px solid #eef5f1;
+  }
+  :root[data-theme="dark"] .mark-row, :root:not([data-theme="light"]) .mark-row{}
+  .mark-row:last-child{border-bottom:none}
+  .mark-row .roll{width:42px;flex:none;color:var(--muted);font-weight:700;font-size:12px}
+  .mark-row .name{flex:1;font-weight:700;font-size:13.5px;min-width:0;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .mark-row .statuses{display:flex;gap:6px;flex:none}
+  .empty{padding:40px 20px;text-align:center;color:var(--muted);font-size:13px}
+
+  /* ===================== REGISTER TABLE ===================== */
+  .table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:14px;background:var(--card);box-shadow:var(--shadow)}
+  table{border-collapse:collapse;width:100%;min-width:600px}
+  th,td{padding:9px 10px;font-size:12.5px;border-bottom:1px solid #eef5f1;text-align:center;white-space:nowrap}
+  thead th{
+    background:var(--soft);color:var(--muted);font-size:10.5px;text-transform:uppercase;
+    letter-spacing:.6px;font-weight:800;position:sticky;top:0;
+  }
+  td.name-col,th.name-col{text-align:left;position:sticky;left:0;background:var(--card);font-weight:700;min-width:150px}
+  thead th.name-col{background:var(--soft)}
+  .cell-status{
+    display:inline-flex;width:24px;height:22px;border-radius:6px;align-items:center;
+    justify-content:center;font-weight:800;font-size:11px;color:#fff;
+  }
+  .cell-status.P{background:var(--emerald-600)} .cell-status.A{background:var(--danger)}
+  .cell-status.L{background:var(--amber-solid)} .cell-status.E{background:var(--slate)}
+  .cell-status.none{background:var(--soft);color:var(--muted);border:1px dashed var(--border)}
+
+  /* ===================== REPORTS TAB ===================== */
+  .bar-track{width:100%;height:7px;background:var(--soft);border-radius:99px;overflow:hidden;border:1px solid var(--border)}
+  .bar-fill{height:100%;background:var(--emerald-600);border-radius:99px}
+  .badge{font-size:10.5px;font-weight:800;padding:3px 9px;border-radius:999px}
+  .badge.low{background:var(--danger-bg);color:var(--danger)}
+  .badge.ok{background:var(--emerald-100);color:var(--emerald-800)}
+
+  /* ===================== TOAST ===================== */
+  .toast{
+    position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);
+    background:var(--emerald-800);color:#fff;padding:11px 20px;border-radius:11px;
+    font-size:13px;font-weight:600;box-shadow:0 10px 30px rgba(0,0,0,.25);
+    opacity:0;pointer-events:none;transition:all .25s;z-index:200;max-width:90vw;text-align:center;
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .toast.err{background:var(--danger)}
+
+  ::-webkit-scrollbar{height:9px;width:9px}
+  ::-webkit-scrollbar-thumb{background:var(--border);border-radius:99px}
+</style>
+</head>
+<body class="checking">
+
+<div class="topbar">
+  <div class="logo">AS</div>
+  <div class="titles"><strong>Attendance Studio</strong><span>ERP Attendance Module</span></div>
+  <div class="spacer"></div>
+  <button class="btn" id="btnExportCsv">⬇ Export CSV</button>
+  <button class="btn primary pulse" id="btnMarkToday">✓ Mark Today</button>
+</div>
+<script>MyERP.mountAccount('.topbar');</script>
+
+<div class="app">
+  <div class="sidebar">
+
+    <div class="card">
+      <h3><span class="num">1</span>Class &amp; Section</h3>
+      <div class="field">
+        <label>Active class</label>
+        <select id="classSelect"></select>
+      </div>
+      <div class="field-row">
+        <button class="btn sm block" id="btnAddClass">+ Add class</button>
+        <button class="btn sm block" id="btnRenameClass">Rename</button>
+      </div>
+      <div class="hint">Each class keeps its own roster, dates and attendance history.</div>
+    </div>
+
+    <div class="card">
+      <h3><span class="num">2</span>Roster</h3>
+      <div class="field-row">
+        <div class="field grow"><label>Roll no.</label><input id="newRoll" placeholder="e.g. 11"/></div>
+        <div class="field" style="flex:2"><label>Student name</label><input id="newName" placeholder="Full name"/></div>
+      </div>
+      <button class="btn sm solid block" id="btnAddStudent" style="margin-bottom:10px">+ Add student</button>
+      <div class="list" id="studentList"></div>
+      <div class="hint" id="rosterHint"></div>
+    </div>
+
+    <div class="card">
+      <h3><span class="num">3</span>Attendance Date</h3>
+      <div class="field"><label>Date</label><input type="date" id="datePick"/></div>
+      <div class="field-row" style="margin-bottom:10px">
+        <button class="btn xs block" id="btnToday">Today</button>
+        <button class="btn xs block" id="btnYesterday">Yesterday</button>
+      </div>
+      <label style="display:block;font-size:11.5px;font-weight:700;color:var(--muted);margin-bottom:6px">Working days</label>
+      <div class="chips" id="workingDays"></div>
+      <div class="hint">Days left off are treated as holidays and skipped in the register.</div>
+    </div>
+
+    <div class="card">
+      <h3><span class="num">4</span>Status Legend</h3>
+      <div class="legend-row"><span class="dot P"></span>Present — counted in full</div>
+      <div class="legend-row"><span class="dot A"></span>Absent — counted as 0</div>
+      <div class="legend-row"><span class="dot L"></span>Late — counted as half day</div>
+      <div class="legend-row" style="margin-bottom:12px"><span class="dot E"></span>Excused — left out of the %</div>
+      <button class="btn sm ghost block" id="btnMarkAllPresent">Mark everyone present</button>
+    </div>
+
+  </div>
+
+  <div class="main">
+    <div class="tabs" id="tabs">
+      <button class="tab on" data-tab="mark">Mark Attendance</button>
+      <button class="tab" data-tab="register">Register</button>
+      <button class="tab" data-tab="reports">Reports</button>
+    </div>
+
+    <div class="toolbar">
+      <div class="stat"><b id="stTotal">0</b><span>Students</span></div>
+      <div class="stat present"><b id="stPresent">0</b><span>Present</span></div>
+      <div class="stat absent"><b id="stAbsent">0</b><span>Absent</span></div>
+      <div class="stat late"><b id="stLate">0</b><span>Late</span></div>
+      <div class="stat pct"><b id="stPct">0%</b><span>Attendance</span></div>
+      <div class="search" id="searchWrap"><input id="searchInput" placeholder="Search student…"/></div>
+    </div>
+
+    <div id="tabMark"></div>
+    <div id="tabRegister" style="display:none"></div>
+    <div id="tabReports" style="display:none"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   STATE
+   ============================================================ */
+const DAY_KEYS = ['SU','MO','TU','WE','TH','FR','SA'];
+const DAY_LABELS = {SU:'Sun',MO:'Mon',TU:'Tue',WE:'Wed',TH:'Thu',FR:'Fri',SA:'Sat'};
+const STATUSES = ['P','A','L','E'];
+
+let state = {
+  classes: [],
+  activeClassId: null,
+  workingDays: ['MO','TU','WE','TH','FR','SA'],
+  date: todayISO(),
+  activeTab: 'mark',
+  search: ''
+};
+
+function todayISO(){ return new Date().toISOString().slice(0,10); }
+function uid(p){ return p+'_'+Math.random().toString(36).slice(2,9); }
+
+function loadDemo(){
+  const c1 = {
+    id: uid('c'), name: 'Grade 10 — Section A',
+    students: [
+      {id:uid('s'), roll:'1', name:'Aarav Mehta'},
+      {id:uid('s'), roll:'2', name:'Bianca Fernandes'},
+      {id:uid('s'), roll:'3', name:'Chen Wei'},
+      {id:uid('s'), roll:'4', name:'Diego Ramirez'},
+      {id:uid('s'), roll:'5', name:'Emeka Okafor'},
+      {id:uid('s'), roll:'6', name:'Farah Haddad'},
+      {id:uid('s'), roll:'7', name:'Grace Kim'},
+      {id:uid('s'), roll:'8', name:'Harun Yilmaz'},
+    ],
+    attendance: {}
+  };
+  // seed some history over the last 10 working days
+  let d = new Date();
+  let filled = 0, cursor = new Date(d);
+  while(filled < 10){
+    const key = DAY_KEYS[cursor.getDay()];
+    const iso = cursor.toISOString().slice(0,10);
+    if(state.workingDays.includes(key) && iso !== state.date){
+      const day = {};
+      c1.students.forEach(s=>{
+        const r = Math.random();
+        day[s.id] = r<0.82 ? 'P' : (r<0.90 ? 'L' : (r<0.97 ? 'A' : 'E'));
+      });
+      c1.attendance[iso] = day;
+      filled++;
+    }
+    cursor.setDate(cursor.getDate()-1);
+  }
+  state.classes = [c1];
+  state.activeClassId = c1.id;
+}
+
+function save(){
+  try{
+    localStorage.setItem('attendance_studio_state', JSON.stringify(state));
+  }catch(e){ /* storage unavailable — continue without persistence */ }
+}
+function restore(){
+  try{
+    const raw = localStorage.getItem('attendance_studio_state');
+    if(!raw) return false;
+    const d = JSON.parse(raw);
+    if(!d || !Array.isArray(d.classes) || !d.classes.length) return false;
+    state = Object.assign(state, d);
+    return true;
+  }catch(e){ return false; }
+}
+
+function activeClass(){ return state.classes.find(c=>c.id===state.activeClassId) || state.classes[0]; }
+
+/* ============================================================
+   TOAST
+   ============================================================ */
+let toastTimer;
+function toast(msg, kind){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (kind==='err' ? ' err' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>{ t.className='toast'; }, 2200);
+}
+
+/* ============================================================
+   RENDER: SIDEBAR
+   ============================================================ */
+function renderClassSelect(){
+  const sel = document.getElementById('classSelect');
+  sel.innerHTML = state.classes.map(c=>
+    `<option value="${c.id}" ${c.id===state.activeClassId?'selected':''}>${escapeHtml(c.name)}</option>`
+  ).join('');
+}
+
+function renderStudentList(){
+  const c = activeClass();
+  const wrap = document.getElementById('studentList');
+  if(!c || !c.students.length){
+    wrap.innerHTML = '';
+    document.getElementById('rosterHint').textContent = 'No students yet — add your first student above.';
+    return;
+  }
+  document.getElementById('rosterHint').textContent = c.students.length+' student(s) in this class.';
+  wrap.innerHTML = c.students.map((s,i)=>`
+    <div class="row-item" data-id="${s.id}">
+      <span class="idx">${s.roll}</span>
+      <input class="grow name-edit" value="${escapeHtml(s.name)}" />
+      <button class="icon-btn" title="Remove" data-remove="${s.id}">✕</button>
+    </div>
+  `).join('');
+  wrap.querySelectorAll('.name-edit').forEach(inp=>{
+    inp.addEventListener('change', e=>{
+      const id = e.target.closest('.row-item').dataset.id;
+      const st = c.students.find(x=>x.id===id);
+      if(st){ st.name = e.target.value.trim() || st.name; save(); renderAll(); }
+    });
+  });
+  wrap.querySelectorAll('[data-remove]').forEach(btn=>{
+    btn.addEventListener('click', e=>{
+      const id = e.target.dataset.remove;
+      c.students = c.students.filter(x=>x.id!==id);
+      Object.values(c.attendance).forEach(day=>{ delete day[id]; });
+      save(); renderAll();
+      toast('Student removed.');
+    });
+  });
+}
+
+function renderWorkingDays(){
+  const wrap = document.getElementById('workingDays');
+  wrap.innerHTML = DAY_KEYS.map(k=>
+    `<button class="chip ${state.workingDays.includes(k)?'on':''}" data-day="${k}">${DAY_LABELS[k]}</button>`
+  ).join('');
+  wrap.querySelectorAll('.chip').forEach(chip=>{
+    chip.addEventListener('click', ()=>{
+      const k = chip.dataset.day;
+      if(state.workingDays.includes(k)) state.workingDays = state.workingDays.filter(x=>x!==k);
+      else state.workingDays.push(k);
+      save(); renderAll();
+    });
+  });
+}
+
+/* ============================================================
+   TOOLBAR STATS
+   ============================================================ */
+function computeStats(){
+  const c = activeClass();
+  const day = c ? (c.attendance[state.date] || {}) : {};
+  const total = c ? c.students.length : 0;
+  let present=0, absent=0, late=0, excused=0, marked=0;
+  (c?c.students:[]).forEach(s=>{
+    const st = day[s.id];
+    if(!st) return;
+    marked++;
+    if(st==='P') present++;
+    else if(st==='A') absent++;
+    else if(st==='L') late++;
+    else if(st==='E') excused++;
+  });
+  const base = present + absent + late; // excused excluded from denominator
+  const pct = base ? Math.round(((present + late*0.5) / base) * 100) : 0;
+  return {total, present, absent, late, excused, marked, pct};
+}
+
+function renderToolbar(){
+  const s = computeStats();
+  document.getElementById('stTotal').textContent = s.total;
+  document.getElementById('stPresent').textContent = s.present;
+  document.getElementById('stAbsent').textContent = s.absent;
+  document.getElementById('stLate').textContent = s.late;
+  document.getElementById('stPct').textContent = s.pct+'%';
+  document.getElementById('searchWrap').style.display = state.activeTab==='mark' ? '' : 'none';
+}
+
+/* ============================================================
+   TABS
+   ============================================================ */
+function renderTabs(){
+  document.querySelectorAll('.tab').forEach(t=>{
+    t.classList.toggle('on', t.dataset.tab===state.activeTab);
+  });
+  document.getElementById('tabMark').style.display = state.activeTab==='mark' ? '' : 'none';
+  document.getElementById('tabRegister').style.display = state.activeTab==='register' ? '' : 'none';
+  document.getElementById('tabReports').style.display = state.activeTab==='reports' ? '' : 'none';
+}
+
+/* ============================================================
+   MARK TAB
+   ============================================================ */
+function renderMark(){
+  const c = activeClass();
+  const wrap = document.getElementById('tabMark');
+  if(!c || !c.students.length){
+    wrap.innerHTML = '<div class="panel"><div class="empty">Add students in the roster to start marking attendance.</div></div>';
+    return;
+  }
+  const day = c.attendance[state.date] || (c.attendance[state.date] = {});
+  const q = state.search.trim().toLowerCase();
+  const rows = c.students.filter(s=>!q || s.name.toLowerCase().includes(q) || s.roll.toLowerCase().includes(q));
+
+  wrap.innerHTML = `<div class="panel">${
+    rows.length ? rows.map(s=>`
+      <div class="mark-row" data-id="${s.id}">
+        <span class="roll">#${escapeHtml(s.roll)}</span>
+        <span class="name">${escapeHtml(s.name)}</span>
+        <div class="statuses">
+          ${STATUSES.map(st=>`<button class="status-btn ${day[s.id]===st?'on':''}" data-s="${st}">${st}</button>`).join('')}
+        </div>
+      </div>
+    `).join('') : '<div class="empty">No students match your search.</div>'
+  }</div>`;
+
+  wrap.querySelectorAll('.status-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const row = btn.closest('.mark-row');
+      const sid = row.dataset.id;
+      const st = btn.dataset.s;
+      const cur = day[sid];
+      day[sid] = (cur===st) ? undefined : st;
+      if(day[sid]===undefined) delete day[sid];
+      save();
+      renderMark();
+      renderToolbar();
+    });
+  });
+}
+
+/* ============================================================
+   REGISTER TAB
+   ============================================================ */
+function registerDates(c){
+  const dates = Object.keys(c.attendance);
+  if(!dates.includes(state.date)) dates.push(state.date);
+  return dates.sort();
+}
+
+function renderRegister(){
+  const c = activeClass();
+  const wrap = document.getElementById('tabRegister');
+  if(!c || !c.students.length){
+    wrap.innerHTML = '<div class="panel"><div class="empty">Add students to see the register.</div></div>';
+    return;
+  }
+  const dates = registerDates(c);
+  const q = state.search.trim().toLowerCase();
+  const students = c.students.filter(s=>!q || s.name.toLowerCase().includes(q) || s.roll.toLowerCase().includes(q));
+
+  wrap.innerHTML = `<div class="table-wrap"><table>
+    <thead><tr>
+      <th class="name-col">Student</th>
+      ${dates.map(d=>`<th>${fmtShort(d)}</th>`).join('')}
+    </tr></thead>
+    <tbody>
+      ${students.map(s=>`
+        <tr>
+          <td class="name-col">#${escapeHtml(s.roll)} ${escapeHtml(s.name)}</td>
+          ${dates.map(d=>{
+            const st = (c.attendance[d]||{})[s.id];
+            return `<td>${st ? `<span class="cell-status ${st}">${st}</span>` : `<span class="cell-status none">–</span>`}</td>`;
+          }).join('')}
+        </tr>
+      `).join('')}
+    </tbody>
+  </table></div>`;
+}
+
+/* ============================================================
+   REPORTS TAB
+   ============================================================ */
+function renderReports(){
+  const c = activeClass();
+  const wrap = document.getElementById('tabReports');
+  if(!c || !c.students.length){
+    wrap.innerHTML = '<div class="panel"><div class="empty">Reports will appear once students and attendance are recorded.</div></div>';
+    return;
+  }
+  const dates = Object.keys(c.attendance);
+  const q = state.search.trim().toLowerCase();
+  const students = c.students.filter(s=>!q || s.name.toLowerCase().includes(q) || s.roll.toLowerCase().includes(q));
+
+  const rows = students.map(s=>{
+    let present=0, absent=0, late=0, excused=0;
+    dates.forEach(d=>{
+      const st = c.attendance[d][s.id];
+      if(st==='P') present++; else if(st==='A') absent++;
+      else if(st==='L') late++; else if(st==='E') excused++;
+    });
+    const base = present+absent+late;
+    const pct = base ? Math.round(((present+late*0.5)/base)*100) : 0;
+    return {s, present, absent, late, excused, pct};
+  }).sort((a,b)=>a.pct-b.pct);
+
+  wrap.innerHTML = `<div class="table-wrap"><table>
+    <thead><tr>
+      <th class="name-col">Student</th><th>Present</th><th>Late</th><th>Absent</th><th>Excused</th>
+      <th style="min-width:150px">Attendance</th>
+    </tr></thead>
+    <tbody>
+      ${rows.map(r=>`
+        <tr>
+          <td class="name-col">#${escapeHtml(r.s.roll)} ${escapeHtml(r.s.name)}</td>
+          <td>${r.present}</td><td>${r.late}</td><td>${r.absent}</td><td>${r.excused}</td>
+          <td>
+            <div style="display:flex;align-items:center;gap:8px">
+              <div class="bar-track" style="flex:1"><div class="bar-fill" style="width:${r.pct}%"></div></div>
+              <span class="badge ${r.pct<75?'low':'ok'}">${r.pct}%</span>
+            </div>
+          </td>
+        </tr>
+      `).join('')}
+    </tbody>
+  </table></div>`;
+}
+
+/* ============================================================
+   EXPORT CSV
+   ============================================================ */
+function exportCsv(){
+  const c = activeClass();
+  if(!c || !c.students.length){ toast('Nothing to export yet.', 'err'); return; }
+  const dates = registerDates(c);
+  const rows = [['Roll','Name', ...dates.map(fmtShort)]];
+  c.students.forEach(s=>{
+    rows.push([s.roll, s.name, ...dates.map(d=>(c.attendance[d]||{})[s.id] || '')]);
+  });
+  const csv = rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\r\n');
+  const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = c.name.replace(/[^\w-]+/g,'_')+'_attendance.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast('CSV downloaded.');
+}
+
+/* ============================================================
+   HELPERS
+   ============================================================ */
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function fmtShort(iso){
+  const d = new Date(iso+'T00:00:00');
+  return d.toLocaleDateString(undefined,{month:'short',day:'numeric'});
+}
+
+/* ============================================================
+   RENDER ALL
+   ============================================================ */
+function renderAll(){
+  renderClassSelect();
+  renderStudentList();
+  renderWorkingDays();
+  document.getElementById('datePick').value = state.date;
+  renderTabs();
+  renderToolbar();
+  renderMark();
+  renderRegister();
+  renderReports();
+}
+
+/* ============================================================
+   EVENTS
+   ============================================================ */
+document.getElementById('classSelect').addEventListener('change', e=>{
+  state.activeClassId = e.target.value; save(); renderAll();
+});
+document.getElementById('btnAddClass').addEventListener('click', ()=>{
+  const name = prompt('New class / section name:', 'New Class');
+  if(!name) return;
+  const c = {id:uid('c'), name:name.trim(), students:[], attendance:{}};
+  state.classes.push(c); state.activeClassId = c.id;
+  save(); renderAll();
+  toast('Class added.');
+});
+document.getElementById('btnRenameClass').addEventListener('click', ()=>{
+  const c = activeClass(); if(!c) return;
+  const name = prompt('Rename class:', c.name);
+  if(!name) return;
+  c.name = name.trim(); save(); renderAll();
+});
+document.getElementById('btnAddStudent').addEventListener('click', ()=>{
+  const c = activeClass(); if(!c){ toast('Add a class first.', 'err'); return; }
+  const roll = document.getElementById('newRoll').value.trim();
+  const name = document.getElementById('newName').value.trim();
+  if(!name){ toast('Enter a student name.', 'err'); return; }
+  c.students.push({id:uid('s'), roll: roll || String(c.students.length+1), name});
+  document.getElementById('newRoll').value=''; document.getElementById('newName').value='';
+  save(); renderAll();
+  toast('Student added.');
+});
+document.getElementById('datePick').addEventListener('change', e=>{
+  state.date = e.target.value || todayISO(); save(); renderAll();
+});
+document.getElementById('btnToday').addEventListener('click', ()=>{
+  state.date = todayISO(); save(); renderAll();
+});
+document.getElementById('btnYesterday').addEventListener('click', ()=>{
+  const d = new Date(); d.setDate(d.getDate()-1);
+  state.date = d.toISOString().slice(0,10); save(); renderAll();
+});
+document.getElementById('btnMarkAllPresent').addEventListener('click', ()=>{
+  const c = activeClass(); if(!c || !c.students.length) return;
+  const day = c.attendance[state.date] || (c.attendance[state.date] = {});
+  c.students.forEach(s=>{ day[s.id] = 'P'; });
+  save(); renderAll();
+  toast('Everyone marked present for '+fmtShort(state.date)+'.');
+});
+document.getElementById('btnMarkToday').addEventListener('click', ()=>{
+  state.date = todayISO(); state.activeTab = 'mark'; save(); renderAll();
+  window.scrollTo({top:0, behavior:'smooth'});
+});
+document.getElementById('btnExportCsv').addEventListener('click', exportCsv);
+document.getElementById('tabs').addEventListener('click', e=>{
+  const btn = e.target.closest('.tab'); if(!btn) return;
+  state.activeTab = btn.dataset.tab; save(); renderAll();
+});
+document.getElementById('searchInput').addEventListener('input', e=>{
+  state.search = e.target.value; renderMark(); renderRegister(); renderReports();
+});
+
+/* ============================================================
+   BOOT
+   ============================================================ */
+if(!restore()) loadDemo();
+if(!state.activeClassId && state.classes.length) state.activeClassId = state.classes[0].id;
+renderAll();
+</script>
+</body>
+</html>

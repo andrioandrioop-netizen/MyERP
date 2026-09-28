@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>MyERP – My profile</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700;800&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="myerp-auth.js"></script>
+<style>
+:root{
+  --forest:#053d2d;
+  --deep:#066f4e;
+  --emerald:#0aa572;
+  --mint:#e4f5ec;
+  --mint-2:#c9ebda;
+  --ink:#0d3b2e;
+  --muted:#6b8a7e;
+  --sheet:#ffffff;
+  --line:#cfe5da;
+  --field:#f3faf6;
+  --err:#b3261e;
+  --accent:var(--deep);
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --sheet:#0b2a21; --ink:#e4f5ec; --muted:#8fb3a3; --line:#1d4a3b; --field:#0f342a; --mint:#123c30; --mint-2:#1d5643; --err:#ff8a80; --accent:var(--emerald);
+  }
+}
+:root[data-theme="dark"]{
+  --sheet:#0b2a21; --ink:#e4f5ec; --muted:#8fb3a3; --line:#1d4a3b; --field:#0f342a; --mint:#123c30; --mint-2:#1d5643; --err:#ff8a80; --accent:var(--emerald);
+}
+*,*::before,*::after{box-sizing:inherit}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{
+  background:var(--forest);
+  color:var(--ink);
+  font-family:"Figtree",system-ui,sans-serif;
+  font-size:16px;line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+.page{min-height:100%;display:flex;flex-direction:column}
+:focus-visible{outline:3px solid var(--emerald);outline-offset:3px;border-radius:6px}
+body.checking .page{visibility:hidden}
+
+/* ---------- top: deep green stage ---------- */
+.stage{
+  position:relative;overflow:hidden;
+  padding:28px 28px 88px;
+  color:#fff;
+  background:
+    radial-gradient(120% 90% at 100% 0%, var(--deep) 0%, transparent 60%),
+    var(--forest);
+}
+.rings{position:absolute;right:-90px;top:-90px;width:340px;height:340px;pointer-events:none}
+.rings circle{fill:none;stroke:var(--emerald);stroke-opacity:.35}
+.brand{display:flex;align-items:center;gap:10px;position:relative}
+.mark{
+  width:34px;height:34px;border-radius:10px;
+  background:linear-gradient(135deg,var(--deep),var(--emerald));
+  display:grid;place-items:center;
+}
+.mark svg{width:20px;height:20px}
+.brand b{font:800 20px/1 "Bricolage Grotesque",sans-serif;letter-spacing:-.01em}
+.brand span{display:block;font-size:12px;color:var(--mint-2);opacity:.85;margin-top:2px;font-weight:500}
+
+.out{
+  all:unset;cursor:pointer;display:inline-block;
+  position:absolute;top:24px;right:22px;z-index:1;
+  padding:9px 16px;border-radius:999px;
+  border:1.5px solid rgba(255,255,255,.38);
+  color:#fff;font-weight:600;font-size:14px;
+  transition:background .2s;
+}
+.out:hover{background:rgba(255,255,255,.12)}
+
+.who{position:relative;margin:44px 0 0}
+.avatar{
+  width:88px;height:88px;border-radius:50%;
+  margin:0 0 30px 18px;
+  display:grid;place-items:center;overflow:hidden;
+  background:linear-gradient(135deg,var(--deep),var(--emerald));
+  font:800 32px/1 "Bricolage Grotesque",sans-serif;letter-spacing:-.02em;
+  box-shadow:0 0 0 8px rgba(10,165,114,.25),0 0 0 18px rgba(10,165,114,.12);
+}
+.avatar img{width:100%;height:100%;object-fit:cover}
+.who h1{
+  margin:0;
+  font:800 clamp(36px,10vw,52px)/1.02 "Bricolage Grotesque",sans-serif;
+  letter-spacing:-.03em;overflow-wrap:break-word;
+}
+.headline{margin:12px 0 0;font-size:16px;color:var(--mint-2);max-width:30ch}
+.photo-actions{display:flex;gap:20px;margin-top:18px}
+.tiny{
+  all:unset;cursor:pointer;
+  font-size:14px;font-weight:600;color:var(--mint-2);
+  text-decoration:underline;text-underline-offset:4px;
+}
+
+/* ---------- bottom: the sheet ---------- */
+.sheet{
+  flex:1;
+  margin-top:-56px;position:relative;
+  background:var(--sheet);
+  border-radius:36px 36px 0 0;
+  padding:32px 28px 40px;
+}
+.sheet > section{margin:0}
+.sheet > section + section{margin-top:34px;padding-top:34px;border-top:1px solid var(--line)}
+h2{margin:0 0 6px;font:700 22px/1.2 "Bricolage Grotesque",sans-serif;letter-spacing:-.01em}
+.note{margin:0 0 20px;color:var(--muted);font-size:14px;max-width:52ch}
+
+/* modules */
+.mods{list-style:none;margin:16px 0 0;padding:0;display:grid;gap:10px}
+.mod{
+  display:flex;align-items:center;gap:14px;
+  padding:14px 16px;border-radius:18px;
+  background:var(--field);border:1.5px solid transparent;
+  color:inherit;text-decoration:none;transition:border-color .2s;
+}
+.mod:hover{border-color:var(--emerald)}
+.ico{
+  flex:none;width:44px;height:44px;border-radius:12px;
+  display:grid;place-items:center;background:var(--mint);color:var(--accent);
+}
+.ico svg{width:22px;height:22px}
+.mod b{display:block;font-weight:600;line-height:1.3}
+.mod small{display:block;color:var(--muted);font-size:14px;line-height:1.4}
+
+/* fields (same look as sign-in) */
+.field{position:relative;margin-bottom:18px}
+.field input,.field textarea{
+  display:block;width:100%;
+  padding:24px 48px 8px 18px;
+  font:500 16px "Figtree",sans-serif;color:var(--ink);
+  background:var(--field);
+  border:1.5px solid transparent;border-radius:16px;
+  outline:none;transition:border-color .2s,background .2s;
+}
+.field input{height:60px}
+.field textarea{min-height:92px;resize:vertical;line-height:1.45}
+.field label{
+  position:absolute;left:18px;top:20px;
+  color:var(--muted);font-size:16px;pointer-events:none;
+  transform-origin:left top;transition:transform .18s ease,color .18s;
+}
+.field input:focus,.field textarea:focus{border-color:var(--emerald);background:var(--sheet)}
+.field input:focus + label,.field textarea:focus + label,
+.field input:not(:placeholder-shown) + label,
+.field textarea:not(:placeholder-shown) + label{transform:translateY(-12px) scale(.75)}
+.field input:focus + label,.field textarea:focus + label{color:var(--accent)}
+.field.bad input,.field.bad textarea{border-color:var(--err)}
+.msg{display:none;color:var(--err);font-size:13px;margin:6px 4px 0}
+.field.bad .msg{display:block}
+.eye{
+  all:unset;cursor:pointer;position:absolute;right:8px;top:8px;
+  width:44px;height:44px;display:grid;place-items:center;color:var(--muted);
+}
+.eye svg{width:22px;height:22px}
+
+.go{
+  all:unset;cursor:pointer;box-sizing:border-box;
+  display:inline-flex;align-items:center;justify-content:center;
+  width:100%;height:56px;padding:0 36px;border-radius:999px;
+  background:linear-gradient(100deg,var(--deep),var(--emerald));
+  color:#fff;font:700 16px "Figtree",sans-serif;
+  box-shadow:0 10px 24px -10px rgba(6,111,78,.65);
+  transition:transform .12s ease,opacity .2s;
+}
+.go:active{transform:scale(.985)}
+.go[disabled]{opacity:.45;cursor:default;box-shadow:none}
+.go:focus-visible{outline:3px solid var(--emerald);outline-offset:3px}
+
+/* college record */
+.rec{margin:0}
+.rec > div{
+  display:grid;grid-template-columns:minmax(104px,34%) 1fr;gap:14px;
+  padding:13px 0;border-bottom:1px solid var(--line);
+}
+.rec > div:last-child{border-bottom:0}
+.rec dt{color:var(--muted)}
+.rec dd{margin:0;font-weight:500;overflow-wrap:anywhere}
+
+/* confirmation toast */
+.toast{
+  position:fixed;left:50%;bottom:calc(22px + env(safe-area-inset-bottom,0px));z-index:10;
+  transform:translate(-50%,16px);opacity:0;pointer-events:none;
+  max-width:calc(100% - 40px);
+  padding:13px 20px;border-radius:999px;
+  background:var(--forest);color:#fff;border:1px solid var(--emerald);
+  font-weight:500;font-size:15px;text-align:center;
+  transition:opacity .2s,transform .2s;
+}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+
+@media (prefers-reduced-motion:no-preference){
+  .who h1{animation:rise .7s cubic-bezier(.2,.7,.2,1) both}
+  @keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+}
+@media (prefers-reduced-motion:reduce){
+  .toast,.field label{transition:none}
+}
+
+/* ---------- wide screens: identity on the left, details on the right ---------- */
+@media (min-width:860px){
+  .page{flex-direction:row}
+  .stage{
+    flex:0 0 clamp(340px,38vw,520px);align-self:flex-start;
+    position:sticky;top:0;height:100vh;
+    padding:56px;display:flex;flex-direction:column;justify-content:space-between;
+  }
+  .rings{width:620px;height:620px;right:-220px;top:auto;bottom:-240px}
+  .out{position:static;order:3;align-self:flex-start}
+  .who{margin:0}
+  .avatar{width:112px;height:112px;font-size:40px;margin-bottom:38px}
+  .who h1{font-size:clamp(44px,4.2vw,64px)}
+  .sheet{flex:1;margin:0;border-radius:0;padding:56px clamp(40px,6vw,96px)}
+  .sheet > section{max-width:560px}
+  .go{width:auto;min-width:200px}
+}
+</style>
+</head>
+<body class="checking">
+<div class="page">
+
+  <header class="stage">
+    <svg class="rings" viewBox="0 0 340 340" aria-hidden="true">
+      <circle cx="170" cy="170" r="60"/><circle cx="170" cy="170" r="105"/>
+      <circle cx="170" cy="170" r="150"/><circle cx="170" cy="170" r="165"/>
+    </svg>
+
+    <div class="brand">
+      <div class="mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 9 12 4 2 9l10 5 10-5Z"/><path d="M6 11.5V16c0 1.2 2.7 3 6 3s6-1.8 6-3v-4.5"/></svg>
+      </div>
+      <div><b>MyERP</b><span>College Management System</span></div>
+    </div>
+
+    <button type="button" class="out" id="out">Sign out</button>
+
+    <section class="who" aria-label="Your account">
+      <div class="avatar" id="avatar">
+        <span id="initials" aria-hidden="true"></span>
+        <img id="photo" alt="Your profile photo" hidden>
+      </div>
+      <h1 id="name"></h1>
+      <p class="headline" id="headline"></p>
+      <div class="photo-actions">
+        <button type="button" class="tiny" id="chg">Add photo</button>
+        <button type="button" class="tiny" id="rmv" hidden>Remove photo</button>
+      </div>
+      <input type="file" id="file" accept="image/*" hidden>
+    </section>
+  </header>
+
+  <main class="sheet">
+
+    <section aria-labelledby="h-mods">
+      <h2 id="h-mods">Modules</h2>
+      <ul class="mods" id="mods"></ul>
+    </section>
+
+    <section aria-labelledby="h-contact">
+      <h2 id="h-contact">Contact details</h2>
+      <p class="note">Keep these up to date so your department can reach you.</p>
+      <form id="cf" novalidate>
+        <div class="field" id="fphone">
+          <input id="phone" type="tel" placeholder=" " autocomplete="tel">
+          <label for="phone">Mobile number</label>
+          <div class="msg">Enter a valid mobile number, or leave it empty.</div>
+        </div>
+        <div class="field">
+          <textarea id="addr" placeholder=" " autocomplete="street-address"></textarea>
+          <label for="addr">Home address</label>
+        </div>
+        <button class="go" type="submit" id="csave" disabled>Save changes</button>
+      </form>
+    </section>
+
+    <section aria-labelledby="h-record">
+      <h2 id="h-record">College record</h2>
+      <p class="note">These come from the college office. Ask your administrator if something is wrong.</p>
+      <dl class="rec" id="rec"></dl>
+    </section>
+
+    <section aria-labelledby="h-pass">
+      <h2 id="h-pass">Password</h2>
+      <p class="note">Use at least 8 characters.</p>
+      <form id="pf" novalidate>
+        <div class="field" id="fcur">
+          <input id="cur" type="password" placeholder=" " autocomplete="current-password">
+          <label for="cur">Current password</label>
+          <button type="button" class="eye" aria-label="Show password"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg></button>
+          <div class="msg"></div>
+        </div>
+        <div class="field" id="fnew">
+          <input id="nw" type="password" placeholder=" " autocomplete="new-password">
+          <label for="nw">New password</label>
+          <button type="button" class="eye" aria-label="Show password"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg></button>
+          <div class="msg"></div>
+        </div>
+        <div class="field" id="fcon">
+          <input id="cn" type="password" placeholder=" " autocomplete="new-password">
+          <label for="cn">Confirm new password</label>
+          <button type="button" class="eye" aria-label="Show password"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg></button>
+          <div class="msg"></div>
+        </div>
+        <button class="go" type="submit" id="psave">Update password</button>
+      </form>
+    </section>
+
+  </main>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(async function(){
+  var user = await MyERP.requireLogin();   // redirects to login, or shows an error screen if the server is unreachable
+  if(!user){ return; }
+  document.body.classList.remove('checking');
+
+  function $(id){ return document.getElementById(id); }
+
+  /* Modules the profile links to. Edit hrefs here; drop a role from `roles` to hide a link from it. */
+  var ALL = ['Student','Faculty','Admin'];
+  var MODULES = [
+    { title:'Attendance', desc:'Mark and review class attendance', href:'attendance-studio.html', roles:ALL,
+      icon:'<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="m9 16 2 2 4-4"/>' },
+    { title:'Timetable', desc:'Weekly class schedule', href:'timetable-studio.html', roles:ALL,
+      icon:'<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/>' }
+  ];
+
+  /* ---------- toast ---------- */
+  var tt;
+  function toast(msg){
+    var t=$('toast'); t.textContent=msg; t.classList.add('on');
+    clearTimeout(tt); tt=setTimeout(function(){ t.classList.remove('on'); },3200);
+  }
+
+  /* ---------- identity ---------- */
+  function initials(name){
+    return name.replace(/^(dr|prof|mr|mrs|ms)\.?\s+/i,'').split(/\s+/).filter(Boolean)
+      .slice(0,2).map(function(w){ return w.charAt(0).toUpperCase(); }).join('');
+  }
+  function paintIdentity(){
+    $('name').textContent = user.name;
+    $('headline').textContent = user.headline || '';
+    $('initials').textContent = initials(user.name);
+    var has = !!user.photo;
+    $('photo').hidden = !has;
+    $('initials').hidden = has;
+    if(has){ $('photo').src = user.photo; }
+    $('rmv').hidden = !has;
+    $('chg').textContent = has ? 'Change photo' : 'Add photo';
+    document.title = user.name + ' – MyERP';
+  }
+  paintIdentity();
+
+  /* ---------- modules ---------- */
+  $('mods').innerHTML = MODULES.filter(function(m){ return m.roles.indexOf(user.role) > -1; }).map(function(m){
+    return '<li><a class="mod" href="'+m.href+'">'+
+      '<span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+m.icon+'</svg></span>'+
+      '<span><b>'+m.title+'</b><small>'+m.desc+'</small></span></a></li>';
+  }).join('');
+
+  /* ---------- college record (read only) ---------- */
+  var rows = [['Account type',user.role],['ID',user.id],['College email',user.email]].concat(user.details || []);
+  var rec = $('rec');
+  rows.forEach(function(r){
+    var row=document.createElement('div'), dt=document.createElement('dt'), dd=document.createElement('dd');
+    dt.textContent=r[0]; dd.textContent=r[1];
+    row.appendChild(dt); row.appendChild(dd); rec.appendChild(row);
+  });
+
+  /* ---------- photo ---------- */
+  $('chg').addEventListener('click',function(){ $('file').click(); });
+  $('file').addEventListener('change',function(){
+    var f=this.files[0], input=this;
+    if(!f){ return; }
+    if(!/^image\//.test(f.type)){ toast('Choose an image file.'); input.value=''; return; }
+    var url=URL.createObjectURL(f), img=new Image();
+    img.onload=async function(){
+      var size=256, c=document.createElement('canvas'), m=Math.min(img.width,img.height);
+      c.width=c.height=size;
+      c.getContext('2d').drawImage(img,(img.width-m)/2,(img.height-m)/2,m,m,0,0,size,size);
+      URL.revokeObjectURL(url);
+      if(await MyERP.saveProfile({photo:c.toDataURL('image/jpeg',.85)})){
+        user=await MyERP.currentUser(); paintIdentity(); toast('Photo updated');
+      } else { toast("Couldn't save the photo: " + (MyERP.lastError || 'try again.')); }
+      input.value='';
+    };
+    img.onerror=function(){ URL.revokeObjectURL(url); toast("That image couldn't be read."); input.value=''; };
+    img.src=url;
+  });
+  $('rmv').addEventListener('click',async function(){
+    if(await MyERP.saveProfile({photo:''})){ user=await MyERP.currentUser(); paintIdentity(); toast('Photo removed'); }
+    else { toast("Couldn't remove the photo: " + (MyERP.lastError || 'try again.')); }
+  });
+
+  /* ---------- contact details ---------- */
+  var phone=$('phone'), addr=$('addr'), csave=$('csave');
+  phone.value = user.phone || '';
+  addr.value  = user.address || '';
+  function contactDirty(){
+    return phone.value.trim()!==(user.phone||'') || addr.value.trim()!==(user.address||'');
+  }
+  [phone,addr].forEach(function(el){
+    el.addEventListener('input',function(){
+      csave.disabled = !contactDirty();
+      $('fphone').classList.remove('bad');
+    });
+  });
+  $('cf').addEventListener('submit',async function(e){
+    e.preventDefault();
+    var p=phone.value.trim(), digits=p.replace(/[\s\-+()]/g,'');
+    if(p && !/^\d{7,15}$/.test(digits)){ $('fphone').classList.add('bad'); phone.focus(); return; }
+    if(await MyERP.saveProfile({phone:p,address:addr.value.trim()})){
+      user=await MyERP.currentUser();
+      phone.value=user.phone||''; addr.value=user.address||'';
+      csave.disabled=true; toast('Contact details saved');
+    } else { toast("Couldn't save. Check your connection and try again."); }
+  });
+
+  /* ---------- password ---------- */
+  document.querySelectorAll('.eye').forEach(function(b){
+    b.addEventListener('click',function(){
+      var i=b.parentNode.querySelector('input'), show=i.type==='password';
+      i.type=show?'text':'password';
+      b.setAttribute('aria-label',show?'Hide password':'Show password');
+    });
+  });
+  function setErr(id,msg){
+    var f=$(id), m=f.querySelector('.msg');
+    if(msg){ m.textContent=msg; f.classList.add('bad'); } else { f.classList.remove('bad'); }
+  }
+  ['cur','nw','cn'].forEach(function(id){
+    $(id).addEventListener('input',function(){ setErr(this.parentNode.id,''); });
+  });
+  $('pf').addEventListener('submit',async function(e){
+    e.preventDefault();
+    var cur=$('cur').value, nw=$('nw').value, cn=$('cn').value, bad=false;
+    setErr('fcur',''); setErr('fnew',''); setErr('fcon','');
+    if(!cur){ setErr('fcur','Enter your current password.'); bad=true; }
+    if(nw.length<8){ setErr('fnew','Use at least 8 characters.'); bad=true; }
+    else if(nw===cur){ setErr('fnew','Choose a password different from the current one.'); bad=true; }
+    if(cn!==nw){ setErr('fcon',"Passwords don't match."); bad=true; }
+    if(bad){ return; }
+    var btn=$('psave'); btn.disabled=true; btn.textContent='Updating\u2026';
+    var r = await MyERP.changePassword(cur,nw);
+    btn.disabled=false; btn.textContent='Update password';
+    if(r==='ok'){ $('pf').reset(); toast('Password updated'); }
+    else if(r==='wrong'){ setErr('fcur','Current password is incorrect.'); $('cur').focus(); }
+    else if(r==='same'){ setErr('fnew','Choose a password different from the current one.'); $('nw').focus(); }
+    else if(r==='weak'){ setErr('fnew','That password is too weak. Try a longer one.'); $('nw').focus(); }
+    else if(r==='network'){ toast("Can't reach the server. Check your connection and try again."); }
+    else { toast("Couldn't save the new password. Try again."); }
+  });
+
+  /* ---------- sign out ---------- */
+  $('out').addEventListener('click',async function(){
+    await MyERP.signOut();
+    location.href='myerp-login.html';
+  });
+})();
+</script>
+</body>
+</html>
